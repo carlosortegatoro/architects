@@ -1177,7 +1177,7 @@ body,
 .presentation-legend {
   position: absolute;
   bottom: 20px;
-  left: 20px;
+  right: 20px;
   z-index: 10;
   background: rgba(17, 24, 39, 0.88);
   border: 1px solid #374151;
