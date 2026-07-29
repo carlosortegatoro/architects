@@ -12,6 +12,7 @@ export default function App() {
   const loadDiagram = useDiagramStore((s) => s.loadDiagram)
   const presenting = useDiagramStore((s) => s.presenting)
   const setPresenting = useDiagramStore((s) => s.setPresenting)
+  const theme = useDiagramStore((s) => s.theme)
   const hydrated = useRef(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -56,7 +57,7 @@ export default function App() {
   }, [presenting, exitPresentation])
 
   return (
-    <div className={`app${presenting ? ' app--presenting' : ''}`} ref={rootRef}>
+    <div className={`app${presenting ? ' app--presenting' : ''}${theme === 'light' ? ' app--light' : ''}`} ref={rootRef}>
       {!presenting && <Toolbar onPresent={enterPresentation} />}
       <div className="app__body">
         {!presenting && <Sidebar />}

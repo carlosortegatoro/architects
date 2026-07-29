@@ -11,6 +11,8 @@ export function Toolbar({ onPresent }: ToolbarProps) {
   const toDiagramFile = useDiagramStore((s) => s.toDiagramFile)
   const loadDiagram = useDiagramStore((s) => s.loadDiagram)
   const clearDiagram = useDiagramStore((s) => s.clearDiagram)
+  const theme = useDiagramStore((s) => s.theme)
+  const toggleTheme = useDiagramStore((s) => s.toggleTheme)
 
   function handleExport() {
     downloadDiagram(toDiagramFile())
@@ -52,6 +54,9 @@ export function Toolbar({ onPresent }: ToolbarProps) {
         />
         <button className="btn btn--danger" onClick={handleClear}>
           Clear
+        </button>
+        <button className="btn" onClick={toggleTheme}>
+          {theme === 'dark' ? '☀ Light theme' : '🌙 Dark theme'}
         </button>
         <button className="btn btn--primary" onClick={onPresent}>
           Present

@@ -18,6 +18,7 @@ export function SystemBoxNode({ id, data, selected }: NodeProps<SystemBoxNodeTyp
   const updateNodeData = useDiagramStore((s) => s.updateNodeData)
   const removeNode = useDiagramStore((s) => s.removeNode)
   const presenting = useDiagramStore((s) => s.presenting)
+  const focusedNodeId = useDiagramStore((s) => s.focusedNodeId)
   const updateNodeInternals = useUpdateNodeInternals()
 
   const counts = data.handleCounts ?? DEFAULT_HANDLE_COUNTS
@@ -32,10 +33,11 @@ export function SystemBoxNode({ id, data, selected }: NodeProps<SystemBoxNodeTyp
   }
 
   const isCompact = presenting && !data.label.trim()
+  const isFocused = editing || focusedNodeId === id
 
   return (
     <div
-      className={`system-box${selected ? ' system-box--selected' : ''}${isCompact ? ' system-box--compact' : ''}`}
+      className={`system-box${selected ? ' system-box--selected' : ''}${isCompact ? ' system-box--compact' : ''}${isFocused ? ' system-box--focused' : ''}`}
       style={{
         borderColor: data.color,
         ...(isCompact ? { width: COMPACT_SIZE, height: COMPACT_SIZE } : {}),

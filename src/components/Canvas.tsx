@@ -51,8 +51,18 @@ export function Canvas({ interactive = true }: CanvasProps) {
       }
     }
 
+    const hiddenByDirectEdges = new Map<string, boolean>()
+    for (const node of nodes) {
+      hiddenByDirectEdges.set(
+        node.id,
+        nodeHasAnyUseCase.get(node.id) === true && !nodeHasVisibleUseCase.get(node.id),
+      )
+    }
+
     return nodes.map((node) => {
-      const shouldHide = nodeHasAnyUseCase.get(node.id) === true && !nodeHasVisibleUseCase.get(node.id)
+      const shouldHide =
+        hiddenByDirectEdges.get(node.id) === true ||
+        (node.parentId !== undefined && hiddenByDirectEdges.get(node.parentId) === true)
       return shouldHide ? { ...node, hidden: true } : node
     })
   }, [nodes, edges, presenting, hiddenUseCaseIds])

@@ -1,6 +1,7 @@
 import type { UseCase } from '../types'
 import { useDiagramStore } from '../store/diagramStore'
 import { ShapePicker } from './ShapePicker'
+import { PlusIcon } from './Icon'
 
 export function UseCaseLegend() {
   const useCases = useDiagramStore((s) => s.useCases)
@@ -12,8 +13,14 @@ export function UseCaseLegend() {
     <div className="panel legend">
       <div className="panel__header">
         <h2>Use cases</h2>
-        <button className="btn btn--primary" onClick={addUseCase}>
-          + New
+        <button
+          type="button"
+          className="btn btn--primary btn--icon"
+          title="New use case"
+          data-tooltip="New Use Case"
+          onClick={addUseCase}
+        >
+          <PlusIcon />
         </button>
       </div>
       <ul className="entity-list">
@@ -39,10 +46,10 @@ export function UseCaseLegend() {
                 })
               }
             >
-              <option value="real-time">Real-time</option>
-              <option value="near-real-time">Near real-time</option>
+              <option value="real-time">RT</option>
+              <option value="near-real-time">NRT</option>
               <option value="batch">Batch</option>
-              <option value="zero-copy">Zero-copy</option>
+              <option value="zero-copy">ZC</option>
               <option value="none">None</option>
             </select>
             <ShapePicker

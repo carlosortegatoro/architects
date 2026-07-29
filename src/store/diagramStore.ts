@@ -36,6 +36,8 @@ function isInsideBounds(
   )
 }
 
+type Theme = 'dark' | 'light'
+
 type DiagramState = {
   nodes: SystemNode[]
   edges: ConnectionEdge[]
@@ -43,9 +45,13 @@ type DiagramState = {
   selectedEdgeId: string | null
   presenting: boolean
   hiddenUseCaseIds: string[]
+  theme: Theme
+  focusedNodeId: string | null
 
   setPresenting: (presenting: boolean) => void
   toggleUseCaseVisibility: (id: string) => void
+  toggleTheme: () => void
+  setFocusedNode: (id: string | null) => void
 
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
@@ -71,6 +77,11 @@ type DiagramState = {
 }
 
 const DEFAULT_USE_CASE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#9333ea', '#0891b2']
+const THEME_STORAGE_KEY = 'architectures.theme'
+
+function loadTheme(): Theme {
+  return localStorage.getItem(THEME_STORAGE_KEY) === 'light' ? 'light' : 'dark'
+}
 
 export const useDiagramStore = create<DiagramState>((set, get) => ({
   nodes: [],
@@ -79,14 +90,23 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
   selectedEdgeId: null,
   presenting: false,
   hiddenUseCaseIds: [],
+  theme: loadTheme(),
+  focusedNodeId: null,
 
   setPresenting: (presenting) => set({ presenting }),
+  setFocusedNode: (id) => set({ focusedNodeId: id }),
 
   toggleUseCaseVisibility: (id) => {
     const hidden = get().hiddenUseCaseIds
     set({
       hiddenUseCaseIds: hidden.includes(id) ? hidden.filter((uid) => uid !== id) : [...hidden, id],
     })
+  },
+
+  toggleTheme: () => {
+    const next = get().theme === 'dark' ? 'light' : 'dark'
+    localStorage.setItem(THEME_STORAGE_KEY, next)
+    set({ theme: next })
   },
 
   onNodesChange: (changes) => {
@@ -152,7 +172,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
   },
 
   onEdgesChange: (changes) => {
-    set({ edges: applyEdgeChanges(changes, get().edges) })
+    set({ edges: applyEdgeChanges(changes, get().edges) as ConnectionEdge[] })
   },
 
   onConnect: (connection) => {

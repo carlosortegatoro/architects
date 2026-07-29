@@ -11,13 +11,14 @@ export function EdgeInspector() {
   const edge = edges.find((e) => e.id === selectedEdgeId)
   if (!edge) return null
 
+  const edgeId = edge.id
   const assignedIds = edge.data?.useCaseIds ?? []
 
   function toggle(useCaseId: string) {
     const next = assignedIds.includes(useCaseId)
       ? assignedIds.filter((id) => id !== useCaseId)
       : [...assignedIds, useCaseId]
-    updateEdgeUseCases(edge.id, next)
+    updateEdgeUseCases(edgeId, next)
   }
 
   return (
