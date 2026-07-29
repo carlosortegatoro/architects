@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Canvas } from './Canvas'
 import { PresentationLegend } from './PresentationLegend'
+import { MoonIcon, SunIcon } from './Icon'
 import { ApiError, publicShareApi } from '../api/client'
 import { useDiagramStore } from '../store/diagramStore'
 
@@ -11,7 +12,7 @@ export function ShareView() {
   const { token } = useParams<{ token: string }>()
   const [status, setStatus] = useState<Status>('loading')
   const [name, setName] = useState('')
-  const theme = useDiagramStore((s) => s.theme)
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
 
   useEffect(() => {
     if (!token) {
@@ -24,6 +25,7 @@ export function ShareView() {
       .then((share) => {
         if (cancelled) return
         useDiagramStore.getState().loadDiagram(share.content)
+        useDiagramStore.getState().setPresenting(true)
         setName(share.name)
         setStatus('ready')
       })
@@ -33,6 +35,7 @@ export function ShareView() {
       })
     return () => {
       cancelled = true
+      useDiagramStore.getState().setPresenting(false)
       useDiagramStore.getState().clearDiagram()
     }
   }, [token])
@@ -61,6 +64,14 @@ export function ShareView() {
         <Canvas interactive={false} />
         <PresentationLegend />
         <h1 className="share-view__title">{name}</h1>
+        <button
+          className="share-view__theme-toggle"
+          onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          aria-label="Toggle theme"
+          title="Toggle theme"
+        >
+          {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
+        </button>
       </div>
     </div>
   )
