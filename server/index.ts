@@ -20,7 +20,7 @@ app.use('/api/diagrams', authedShareRouter)
 app.use('/api/share', publicShareRouter)
 
 if (process.env.NODE_ENV === 'production') {
-  const distDir = path.join(dirname, '..', 'dist')
+  const distDir = path.join(dirname, '..', '..', 'dist')
   app.use(express.static(distDir))
   app.get('*', (_req, res) => {
     res.sendFile(path.join(distDir, 'index.html'))
