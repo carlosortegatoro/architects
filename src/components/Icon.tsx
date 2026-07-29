@@ -23,3 +23,170 @@ export function AsteriskIcon() {
     </svg>
   )
 }
+
+export function FolderIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M1.5 3.5C1.5 2.94772 1.94772 2.5 2.5 2.5H5.5L6.83333 4H11.5C12.0523 4 12.5 4.44772 12.5 5V10.5C12.5 11.0523 12.0523 11.5 11.5 11.5H2.5C1.94772 11.5 1.5 11.0523 1.5 10.5V3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M7 1.5V9M7 9L4 6M7 9L10 6M2 10.5V11.5C2 12.0523 2.44772 12.5 3 12.5H11C11.5523 12.5 12 12.0523 12 11.5V10.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function UploadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M7 9V1.5M7 1.5L4 4.5M7 1.5L10 4.5M2 10.5V11.5C2 12.0523 2.44772 12.5 3 12.5H11C11.5523 12.5 12 12.0523 12 11.5V10.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function MoonIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M12 8.72A5.25 5.25 0 1 1 5.28 2 4.25 4.25 0 0 0 12 8.72Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function SunIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <circle cx="7" cy="7" r="2.75" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M7 1V2.2M7 11.8V13M1 7H2.2M11.8 7H13M2.64 2.64L3.48 3.48M10.52 10.52L11.36 11.36M2.64 11.36L3.48 10.52M10.52 3.48L11.36 2.64"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+export function PlayIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M3.5 1.75V12.25L11.5 7L3.5 1.75Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function SpinnerIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="spinner-icon">
+      <path
+        d="M12.5 7A5.5 5.5 0 1 1 7 1.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+export function PaperPlaneIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M12.5 1.5L1.5 6.25L5.75 7.75M12.5 1.5L7.75 12.5L5.75 7.75M12.5 1.5L5.75 7.75"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function ShareIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M9.5 4.5L12.5 2M12.5 2V5M12.5 2H9.5M6 7.5L2 11.5M2 11.5H5M2 11.5V8.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M2.5 3.5H11.5M5.5 3.5V2C5.5 1.72386 5.72386 1.5 6 1.5H8C8.27614 1.5 8.5 1.72386 8.5 2V3.5M4 3.5V11C4 11.5523 4.44772 12 5 12H9C9.55228 12 10 11.5523 10 11V3.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function CopyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M5 5V2.5C5 1.94772 5.44772 1.5 6 1.5H11C11.5523 1.5 12 1.94772 12 2.5V8C12 8.55228 11.5523 9 11 9H8.5M3 5H8C8.55228 5 9 5.44772 9 6V11C9 11.5523 8.55228 12 8 12H3C2.44772 12 2 11.5523 2 11V6C2 5.44772 2.44772 5 3 5Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function ChevronDownIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function UserIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
+      <circle cx="7" cy="4.5" r="2.5" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M2 12C2 9.51472 4.23858 7.5 7 7.5C9.76142 7.5 12 9.51472 12 12"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}

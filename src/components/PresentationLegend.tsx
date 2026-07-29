@@ -1,10 +1,6 @@
 import { useDiagramStore } from '../store/diagramStore'
 
-type PresentationLegendProps = {
-  onExit: () => void
-}
-
-export function PresentationLegend({ onExit }: PresentationLegendProps) {
+export function PresentationLegend() {
   const useCases = useDiagramStore((s) => s.useCases)
   const hiddenUseCaseIds = useDiagramStore((s) => s.hiddenUseCaseIds)
   const toggleUseCaseVisibility = useDiagramStore((s) => s.toggleUseCaseVisibility)
@@ -15,9 +11,6 @@ export function PresentationLegend({ onExit }: PresentationLegendProps) {
     <div className="presentation-legend">
       <div className="presentation-legend__header">
         <span>Use cases</span>
-        <button className="presentation-legend__exit" onClick={onExit} title="Exit (Esc)">
-          ✕
-        </button>
       </div>
       <ul className="presentation-legend__list">
         {useCases.map((useCase) => (

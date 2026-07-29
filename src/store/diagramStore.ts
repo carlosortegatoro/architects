@@ -11,6 +11,7 @@ import {
   type Connection,
 } from '@xyflow/react'
 import type { ConnectionEdgeData, DiagramFile, GroupNodeData, SystemNodeData, UseCase } from '../types'
+import { diagramsApi } from '../api/client'
 
 let idCounter = 0
 function nextId(prefix: string) {
@@ -47,6 +48,18 @@ type DiagramState = {
   hiddenUseCaseIds: string[]
   theme: Theme
   focusedNodeId: string | null
+
+  diagramId: string | null
+  diagramName: string
+  isLoading: boolean
+  isDirty: boolean
+  isSaving: boolean
+  loadError: string | null
+
+  openDiagram: (id: string) => Promise<void>
+  saveDiagram: () => Promise<void>
+  renameDiagram: (name: string) => Promise<void>
+  closeDiagram: () => void
 
   setPresenting: (presenting: boolean) => void
   toggleUseCaseVisibility: (id: string) => void
@@ -93,6 +106,48 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
   theme: loadTheme(),
   focusedNodeId: null,
 
+  diagramId: null,
+  diagramName: '',
+  isLoading: false,
+  isDirty: false,
+  isSaving: false,
+  loadError: null,
+
+  openDiagram: async (id) => {
+    set({ isLoading: true, loadError: null, diagramId: id })
+    try {
+      const diagram = await diagramsApi.get(id)
+      get().loadDiagram(diagram.content)
+      set({ diagramName: diagram.name, isLoading: false, isDirty: false })
+    } catch (err) {
+      set({ isLoading: false, loadError: err instanceof Error ? err.message : 'Could not load diagram' })
+    }
+  },
+
+  saveDiagram: async () => {
+    const { diagramId, toDiagramFile } = get()
+    if (!diagramId) return
+    set({ isSaving: true })
+    try {
+      await diagramsApi.update(diagramId, { content: toDiagramFile() })
+      set({ isSaving: false, isDirty: false })
+    } catch {
+      set({ isSaving: false })
+    }
+  },
+
+  renameDiagram: async (name) => {
+    const { diagramId } = get()
+    set({ diagramName: name })
+    if (!diagramId) return
+    await diagramsApi.update(diagramId, { name })
+  },
+
+  closeDiagram: () => {
+    set({ diagramId: null, diagramName: '', isDirty: false, loadError: null })
+    get().clearDiagram()
+  },
+
   setPresenting: (presenting) => set({ presenting }),
   setFocusedNode: (id) => set({ focusedNodeId: id }),
 
@@ -118,7 +173,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
     )
 
     if (finishedDragIds.size === 0) {
-      set({ nodes: nextNodes })
+      set({ nodes: nextNodes, isDirty: true })
       return
     }
 
@@ -168,11 +223,11 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
       return node
     })
 
-    set({ nodes: resolved })
+    set({ nodes: resolved, isDirty: true })
   },
 
   onEdgesChange: (changes) => {
-    set({ edges: applyEdgeChanges(changes, get().edges) as ConnectionEdge[] })
+    set({ edges: applyEdgeChanges(changes, get().edges) as ConnectionEdge[], isDirty: true })
   },
 
   onConnect: (connection) => {
@@ -182,11 +237,11 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
       type: 'useCase',
       data: { useCaseIds: [] },
     }
-    set({ edges: addEdgeToList(newEdge, get().edges) })
+    set({ edges: addEdgeToList(newEdge, get().edges), isDirty: true })
   },
 
   onReconnect: (oldEdge, newConnection) => {
-    set({ edges: reconnectEdge(oldEdge, newConnection, get().edges) })
+    set({ edges: reconnectEdge(oldEdge, newConnection, get().edges), isDirty: true })
   },
 
   addNode: (position) => {
@@ -198,7 +253,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
       height: 110,
       data: { label: 'New system', color: '#334155' },
     }
-    set({ nodes: [...get().nodes, node] })
+    set({ nodes: [...get().nodes, node], isDirty: true })
   },
 
   addGroup: (position) => {
@@ -211,12 +266,13 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
       zIndex: -1,
       data: { label: 'New group', color: '#475569' },
     }
-    set({ nodes: [...get().nodes, node] })
+    set({ nodes: [...get().nodes, node], isDirty: true })
   },
 
   updateNodeData: (id, data) => {
     set({
       nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...data } } : n)),
+      isDirty: true,
     })
   },
 
@@ -239,6 +295,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
     set({
       nodes: survivors,
       edges: get().edges.filter((e) => e.source !== id && e.target !== id),
+      isDirty: true,
     })
   },
 
@@ -249,6 +306,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
       edges: get().edges.map((e) =>
         e.id === edgeId ? { ...e, data: { ...e.data, useCaseIds } } : e,
       ),
+      isDirty: true,
     })
   },
 
@@ -256,6 +314,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
     set({
       edges: get().edges.filter((e) => e.id !== id),
       selectedEdgeId: get().selectedEdgeId === id ? null : get().selectedEdgeId,
+      isDirty: true,
     })
   },
 
@@ -269,12 +328,13 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
       speed: 'near-real-time',
       shape: 'circle',
     }
-    set({ useCases: [...useCases, useCase] })
+    set({ useCases: [...useCases, useCase], isDirty: true })
   },
 
   updateUseCase: (id, patch) => {
     set({
       useCases: get().useCases.map((u) => (u.id === id ? { ...u, ...patch } : u)),
+      isDirty: true,
     })
   },
 
@@ -285,6 +345,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
         ...e,
         data: { ...e.data, useCaseIds: (e.data?.useCaseIds ?? []).filter((uid) => uid !== id) },
       })),
+      isDirty: true,
     })
   },
 

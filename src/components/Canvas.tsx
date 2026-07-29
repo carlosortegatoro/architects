@@ -1,5 +1,13 @@
-import { useCallback, useMemo, useRef } from 'react'
-import { Background, ConnectionMode, Controls, MiniMap, ReactFlow, type EdgeMouseHandler } from '@xyflow/react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import {
+  Background,
+  ConnectionMode,
+  Controls,
+  MiniMap,
+  ReactFlow,
+  useReactFlow,
+  type EdgeMouseHandler,
+} from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useDiagramStore } from '../store/diagramStore'
 import { GroupNode } from './GroupNode'
@@ -11,6 +19,16 @@ const edgeTypes = { useCase: UseCaseEdge }
 
 type CanvasProps = {
   interactive?: boolean
+}
+
+function PresentationAutoFit({ presenting }: { presenting: boolean }) {
+  const { fitView } = useReactFlow()
+
+  useEffect(() => {
+    if (presenting) fitView({ duration: 300 })
+  }, [presenting, fitView])
+
+  return null
 }
 
 export function Canvas({ interactive = true }: CanvasProps) {
@@ -96,6 +114,7 @@ export function Canvas({ interactive = true }: CanvasProps) {
         elementsSelectable={interactive}
         fitView
       >
+        <PresentationAutoFit presenting={presenting} />
         <Background />
         <Controls showInteractive={interactive} />
         {interactive && <MiniMap pannable zoomable />}
