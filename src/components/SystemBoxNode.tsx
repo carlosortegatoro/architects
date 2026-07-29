@@ -3,6 +3,7 @@ import { Handle, NodeResizer, useUpdateNodeInternals, type Node, type NodeProps 
 import type { HandleCounts, SystemNodeData } from '../types'
 import { useDiagramStore } from '../store/diagramStore'
 import { IconPicker } from './IconPicker'
+import { resolveIconSrc } from '../config/presetLogos'
 import { buildHandles, DEFAULT_HANDLE_COUNTS, SideStepper } from './nodeHandles'
 
 type SystemBoxNodeType = Node<SystemNodeData>
@@ -65,7 +66,7 @@ export function SystemBoxNode({ id, data, selected }: NodeProps<SystemBoxNodeTyp
       <div className="system-box__main">
         {presenting ? (
           <div className="system-box__icon system-box__icon--static">
-            {data.icon && <img src={data.icon} alt="" />}
+            {data.icon && <img src={resolveIconSrc(data.icon)} alt="" />}
           </div>
         ) : (
           <IconPicker

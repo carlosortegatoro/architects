@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { PRESET_LOGOS } from '../config/presetLogos'
+import { PRESET_LOGOS, resolveIconSrc } from '../config/presetLogos'
 
 type IconPickerProps = {
   icon?: string
@@ -88,7 +88,7 @@ export function IconPicker({ icon, onChange, triggerClassName, placeholderClassN
         onClick={() => setOpen((o) => !o)}
         title="Choose logo"
       >
-        {icon ? <img src={icon} alt="" /> : <span className={placeholderClassName}>+</span>}
+        {icon ? <img src={resolveIconSrc(icon)} alt="" /> : <span className={placeholderClassName}>+</span>}
       </button>
 
       {open &&
@@ -156,7 +156,7 @@ export function IconPicker({ icon, onChange, triggerClassName, placeholderClassN
                   className="icon-picker__preset"
                   title={logo.name}
                   onClick={() => {
-                    onChange(logo.src)
+                    onChange(logo.icon)
                     setOpen(false)
                   }}
                 >

@@ -3,6 +3,7 @@ import { Handle, NodeResizer, useUpdateNodeInternals, type Node, type NodeProps 
 import type { GroupNodeData, HandleCounts } from '../types'
 import { useDiagramStore } from '../store/diagramStore'
 import { IconPicker } from './IconPicker'
+import { resolveIconSrc } from '../config/presetLogos'
 import { buildHandles, DEFAULT_HANDLE_COUNTS, SideStepper } from './nodeHandles'
 
 type GroupNodeType = Node<GroupNodeData>
@@ -57,7 +58,7 @@ export function GroupNode({ id, data, selected }: NodeProps<GroupNodeType>) {
         {presenting ? (
           data.icon && (
             <div className="group-box__icon group-box__icon--static">
-              <img src={data.icon} alt="" />
+              <img src={resolveIconSrc(data.icon)} alt="" />
             </div>
           )
         ) : (
