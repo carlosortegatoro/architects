@@ -7,15 +7,23 @@ type ShareDialogProps = {
   onClose: () => void
 }
 
+const NEVER_EXPIRES_DATE = new Date('2100-01-01T00:00:00Z')
+const NEVER_EXPIRES_HOURS = Math.ceil((NEVER_EXPIRES_DATE.getTime() - Date.now()) / (60 * 60 * 1000))
+
 const DURATION_OPTIONS = [
   { label: '1 hour', hours: 1 },
   { label: '24 hours', hours: 24 },
   { label: '7 days', hours: 24 * 7 },
   { label: '30 days', hours: 24 * 30 },
+  { label: 'Never', hours: NEVER_EXPIRES_HOURS },
 ]
 
 function isActive(link: ShareLink) {
   return link.revokedAt === null && new Date(link.expiresAt) > new Date()
+}
+
+function neverExpires(link: ShareLink) {
+  return new Date(link.expiresAt).getUTCFullYear() >= 2100
 }
 
 export function ShareDialog({ diagramId, onClose }: ShareDialogProps) {
@@ -113,7 +121,7 @@ export function ShareDialog({ diagramId, onClose }: ShareDialogProps) {
                 <li key={link.id} className="share-dialog__row">
                   <span className="share-dialog__url">{`${location.origin}${link.url}`}</span>
                   <span className="share-dialog__expiry">
-                    Expires {new Date(link.expiresAt).toLocaleString()}
+                    {neverExpires(link) ? 'Never expires' : `Expires ${new Date(link.expiresAt).toLocaleString()}`}
                   </span>
                   <button className="btn btn--icon" onClick={() => handleCopy(link)} data-tooltip={copiedId === link.id ? 'Copied!' : 'Copy link'}>
                     <CopyIcon />

@@ -190,3 +190,34 @@ export function UserIcon() {
     </svg>
   )
 }
+
+export function TagIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M7.5 1.5H3.5C2.94772 1.5 2.5 1.94772 2.5 2.5V6.5C2.5 6.76522 2.60536 7.01957 2.79289 7.20711L7.29289 11.7071C7.68342 12.0976 8.31658 12.0976 8.70711 11.7071L11.7071 8.70711C12.0976 8.31658 12.0976 7.68342 11.7071 7.29289L7.20711 2.79289C7.01957 2.60536 6.76522 2.5 6.5 2.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="4.75" cy="4.25" r="0.75" fill="currentColor" />
+    </svg>
+  )
+}
+
+export function TagOffIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M7.5 1.5H3.5C2.94772 1.5 2.5 1.94772 2.5 2.5V6.5C2.5 6.76522 2.60536 7.01957 2.79289 7.20711L7.29289 11.7071C7.68342 12.0976 8.31658 12.0976 8.70711 11.7071L11.7071 8.70711C12.0976 8.31658 12.0976 7.68342 11.7071 7.29289L7.20711 2.79289C7.01957 2.60536 6.76522 2.5 6.5 2.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="4.75" cy="4.25" r="0.75" fill="currentColor" />
+      <path d="M1.5 1.5L12.5 12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}

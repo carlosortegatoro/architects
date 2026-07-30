@@ -16,6 +16,7 @@ export function GroupNode({ id, data, selected }: NodeProps<GroupNodeType>) {
   const updateNodeData = useDiagramStore((s) => s.updateNodeData)
   const removeNode = useDiagramStore((s) => s.removeNode)
   const presenting = useDiagramStore((s) => s.presenting)
+  const isDropTarget = useDiagramStore((s) => s.dropTargetGroupId === id)
   const updateNodeInternals = useUpdateNodeInternals()
 
   const counts = data.handleCounts ?? DEFAULT_HANDLE_COUNTS
@@ -30,7 +31,10 @@ export function GroupNode({ id, data, selected }: NodeProps<GroupNodeType>) {
   }
 
   return (
-    <div className="group-box" style={{ borderColor: data.color }}>
+    <div
+      className={`group-box${isDropTarget ? ' group-box--drop-target' : ''}`}
+      style={{ borderColor: data.color }}
+    >
       <NodeResizer
         isVisible={selected && !presenting}
         minWidth={DEFAULT_WIDTH}

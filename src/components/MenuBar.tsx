@@ -12,6 +12,8 @@ import {
   PaperPlaneIcon,
   PlayIcon,
   SunIcon,
+  TagIcon,
+  TagOffIcon,
   UploadIcon,
   UserIcon,
 } from './Icon'
@@ -32,6 +34,8 @@ export function MenuBar({ onPresent, onOpenPicker }: MenuBarProps) {
   const loadDiagram = useDiagramStore((s) => s.loadDiagram)
   const theme = useDiagramStore((s) => s.theme)
   const toggleTheme = useDiagramStore((s) => s.toggleTheme)
+  const showEdgeLabels = useDiagramStore((s) => s.showEdgeLabels)
+  const toggleEdgeLabels = useDiagramStore((s) => s.toggleEdgeLabels)
   const diagramId = useDiagramStore((s) => s.diagramId)
   const diagramName = useDiagramStore((s) => s.diagramName)
   const renameDiagram = useDiagramStore((s) => s.renameDiagram)
@@ -175,6 +179,14 @@ export function MenuBar({ onPresent, onOpenPicker }: MenuBarProps) {
         </button>
 
         <div className="toolbar__account" ref={accountRef}>
+          <button
+            className="toolbar__theme-toggle"
+            onClick={toggleEdgeLabels}
+            aria-label={showEdgeLabels ? 'Hide connection labels' : 'Show connection labels'}
+            title={showEdgeLabels ? 'Hide connection labels' : 'Show connection labels'}
+          >
+            {showEdgeLabels ? <TagIcon /> : <TagOffIcon />}
+          </button>
           <button className="toolbar__theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
           </button>

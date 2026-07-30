@@ -37,6 +37,14 @@ function isInsideBounds(
   )
 }
 
+function absolutePositionOf(node: SystemNode, byId: Map<string, SystemNode>): { x: number; y: number } {
+  if (!node.parentId) return node.position
+  const parent = byId.get(node.parentId)
+  if (!parent) return node.position
+  const parentAbs = absolutePositionOf(parent, byId)
+  return { x: parentAbs.x + node.position.x, y: parentAbs.y + node.position.y }
+}
+
 type Theme = 'dark' | 'light'
 
 type DiagramState = {
@@ -48,6 +56,8 @@ type DiagramState = {
   hiddenUseCaseIds: string[]
   theme: Theme
   focusedNodeId: string | null
+  dropTargetGroupId: string | null
+  showEdgeLabels: boolean
 
   diagramId: string | null
   diagramName: string
@@ -65,6 +75,9 @@ type DiagramState = {
   toggleUseCaseVisibility: (id: string) => void
   toggleTheme: () => void
   setFocusedNode: (id: string | null) => void
+  setDropTargetGroup: (id: string | null) => void
+  findGroupAt: (nodeId: string, position: { x: number; y: number }) => string | null
+  toggleEdgeLabels: () => void
 
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
@@ -105,6 +118,8 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
   hiddenUseCaseIds: [],
   theme: loadTheme(),
   focusedNodeId: null,
+  dropTargetGroupId: null,
+  showEdgeLabels: true,
 
   diagramId: null,
   diagramName: '',
@@ -150,6 +165,37 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
 
   setPresenting: (presenting) => set({ presenting }),
   setFocusedNode: (id) => set({ focusedNodeId: id }),
+  setDropTargetGroup: (id) => set({ dropTargetGroupId: id }),
+
+  findGroupAt: (nodeId, position) => {
+    const nodes = get().nodes
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    const node = byId.get(nodeId)
+    if (!node) return null
+
+    const abs = node.parentId
+      ? {
+          x: absolutePositionOf(byId.get(node.parentId)!, byId).x + position.x,
+          y: absolutePositionOf(byId.get(node.parentId)!, byId).y + position.y,
+        }
+      : position
+    const width = node.width ?? 220
+    const height = node.height ?? 110
+
+    const containingGroup = nodes.find(
+      (g) =>
+        g.type === 'group' &&
+        g.id !== nodeId &&
+        isInsideBounds(
+          { ...abs, width, height },
+          { ...absolutePositionOf(g, byId), width: g.width ?? GROUP_WIDTH, height: g.height ?? GROUP_HEIGHT },
+        ),
+    )
+
+    return containingGroup?.id ?? null
+  },
+
+  toggleEdgeLabels: () => set({ showEdgeLabels: !get().showEdgeLabels, isDirty: true }),
 
   toggleUseCaseVisibility: (id) => {
     const hidden = get().hiddenUseCaseIds
@@ -180,18 +226,10 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
     const byId = new Map(nextNodes.map((n) => [n.id, n]))
     const groups = nextNodes.filter((n) => n.type === 'group')
 
-    function absolutePosition(node: SystemNode): { x: number; y: number } {
-      if (!node.parentId) return node.position
-      const parent = byId.get(node.parentId)
-      if (!parent) return node.position
-      const parentAbs = absolutePosition(parent)
-      return { x: parentAbs.x + node.position.x, y: parentAbs.y + node.position.y }
-    }
-
     const resolved = nextNodes.map((node) => {
       if (node.type === 'group' || !finishedDragIds.has(node.id)) return node
 
-      const abs = absolutePosition(node)
+      const abs = absolutePositionOf(node, byId)
       const width = node.width ?? 220
       const height = node.height ?? 110
 
@@ -200,13 +238,13 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
           g.id !== node.id &&
           isInsideBounds(
             { ...abs, width, height },
-            { ...absolutePosition(g), width: g.width ?? GROUP_WIDTH, height: g.height ?? GROUP_HEIGHT },
+            { ...absolutePositionOf(g, byId), width: g.width ?? GROUP_WIDTH, height: g.height ?? GROUP_HEIGHT },
           ),
       )
 
       if (containingGroup) {
         if (node.parentId === containingGroup.id) return node
-        const groupAbs = absolutePosition(containingGroup)
+        const groupAbs = absolutePositionOf(containingGroup, byId)
         return {
           ...node,
           parentId: containingGroup.id,
@@ -223,7 +261,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
       return node
     })
 
-    set({ nodes: resolved, isDirty: true })
+    set({ nodes: resolved, isDirty: true, dropTargetGroupId: null })
   },
 
   onEdgesChange: (changes) => {
@@ -368,13 +406,15 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
       edges: file.edges.map((e) => ({ ...e, type: 'useCase' })),
       useCases: file.useCases,
       selectedEdgeId: null,
+      showEdgeLabels: file.showEdgeLabels ?? true,
     })
   },
 
   toDiagramFile: () => {
-    const { nodes, edges, useCases } = get()
+    const { nodes, edges, useCases, showEdgeLabels } = get()
     return {
       version: 1,
+      showEdgeLabels,
       nodes: nodes.map((n) => ({
         id: n.id,
         type: n.type === 'group' ? 'group' : 'systemBox',
@@ -397,5 +437,12 @@ export const useDiagramStore = create<DiagramState>((set, get) => ({
   },
 
   clearDiagram: () =>
-    set({ nodes: [], edges: [], useCases: [], selectedEdgeId: null, hiddenUseCaseIds: [] }),
+    set({
+      nodes: [],
+      edges: [],
+      useCases: [],
+      selectedEdgeId: null,
+      hiddenUseCaseIds: [],
+      showEdgeLabels: true,
+    }),
 }))

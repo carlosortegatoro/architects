@@ -27,6 +27,7 @@ export function UseCaseEdge({
   selected,
 }: EdgeProps<ConnectionEdge>) {
   const useCases = useDiagramStore((s) => s.useCases)
+  const showEdgeLabels = useDiagramStore((s) => s.showEdgeLabels)
   const siblingCount = useDiagramStore(
     (s) =>
       s.edges.filter(
@@ -145,7 +146,7 @@ export function UseCaseEdge({
       })}
 
       <EdgeLabelRenderer>
-        {assigned.length > 0 && (
+        {showEdgeLabels && assigned.length > 0 && (
           <div
             className="use-case-edge__badge"
             style={{

@@ -4,7 +4,8 @@ import { pool } from '../db.js'
 import { requireAuth, type AuthedRequest } from '../middleware/requireAuth.js'
 import { generateShareToken } from '../lib/token.js'
 
-const MAX_DURATION_HOURS = 24 * 30
+const NEVER_EXPIRES_DATE = new Date('2100-01-01T00:00:00Z')
+const MAX_DURATION_HOURS = Math.ceil((NEVER_EXPIRES_DATE.getTime() - Date.now()) / (60 * 60 * 1000))
 
 const createSchema = z.object({
   durationHours: z.number().int().positive().max(MAX_DURATION_HOURS),

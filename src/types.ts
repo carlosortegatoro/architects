@@ -56,4 +56,5 @@ export type DiagramFile = {
     data: ConnectionEdgeData
   }>
   useCases: UseCase[]
+  showEdgeLabels?: boolean
 }

@@ -7,9 +7,10 @@ import {
   ReactFlow,
   useReactFlow,
   type EdgeMouseHandler,
+  type OnNodeDrag,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useDiagramStore } from '../store/diagramStore'
+import { useDiagramStore, type SystemNode } from '../store/diagramStore'
 import { GroupNode } from './GroupNode'
 import { SystemBoxNode } from './SystemBoxNode'
 import { UseCaseEdge } from './UseCaseEdge'
@@ -42,6 +43,8 @@ export function Canvas({ interactive = true }: CanvasProps) {
   const setSelectedEdge = useDiagramStore((s) => s.setSelectedEdge)
   const presenting = useDiagramStore((s) => s.presenting)
   const hiddenUseCaseIds = useDiagramStore((s) => s.hiddenUseCaseIds)
+  const findGroupAt = useDiagramStore((s) => s.findGroupAt)
+  const setDropTargetGroup = useDiagramStore((s) => s.setDropTargetGroup)
 
   const visibleEdges = useMemo(() => {
     if (!presenting || hiddenUseCaseIds.length === 0) return edges
@@ -92,6 +95,18 @@ export function Canvas({ interactive = true }: CanvasProps) {
 
   const onPaneClick = useCallback(() => setSelectedEdge(null), [setSelectedEdge])
 
+  const onNodeDrag: OnNodeDrag<SystemNode> = useCallback(
+    (_, node) => {
+      if (node.type === 'group') return
+      setDropTargetGroup(findGroupAt(node.id, node.position))
+    },
+    [findGroupAt, setDropTargetGroup],
+  )
+
+  const onNodeDragStop: OnNodeDrag<SystemNode> = useCallback(() => {
+    setDropTargetGroup(null)
+  }, [setDropTargetGroup])
+
   const defaultEdgeOptions = useMemo(() => ({ type: 'useCase' }), [])
 
   return (
@@ -107,11 +122,15 @@ export function Canvas({ interactive = true }: CanvasProps) {
         onReconnect={interactive ? onReconnect : undefined}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
+        onNodeDrag={interactive ? onNodeDrag : undefined}
+        onNodeDragStop={interactive ? onNodeDragStop : undefined}
         defaultEdgeOptions={defaultEdgeOptions}
         connectionMode={ConnectionMode.Loose}
         nodesDraggable={interactive}
         nodesConnectable={interactive}
         elementsSelectable={interactive}
+        selectionOnDrag={false}
+        multiSelectionKeyCode="Shift"
         fitView
       >
         <PresentationAutoFit presenting={presenting} />
