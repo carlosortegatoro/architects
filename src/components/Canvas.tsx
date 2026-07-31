@@ -80,10 +80,22 @@ export function Canvas({ interactive = true }: CanvasProps) {
       )
     }
 
+    const groupHasVisibleChild = new Map<string, boolean>()
+    for (const node of nodes) {
+      if (node.parentId === undefined) continue
+      if (hiddenByDirectEdges.get(node.id) !== true) {
+        groupHasVisibleChild.set(node.parentId, true)
+      }
+    }
+
     return nodes.map((node) => {
+      const isGroupHiddenByOwnEdges =
+        node.type === 'group'
+          ? hiddenByDirectEdges.get(node.id) === true && !groupHasVisibleChild.get(node.id)
+          : hiddenByDirectEdges.get(node.id) === true
       const shouldHide =
-        hiddenByDirectEdges.get(node.id) === true ||
-        (node.parentId !== undefined && hiddenByDirectEdges.get(node.parentId) === true)
+        isGroupHiddenByOwnEdges ||
+        (node.parentId !== undefined && hiddenByDirectEdges.get(node.parentId) === true && !groupHasVisibleChild.get(node.parentId))
       return shouldHide ? { ...node, hidden: true } : node
     })
   }, [nodes, edges, presenting, hiddenUseCaseIds])

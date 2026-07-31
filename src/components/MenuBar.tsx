@@ -182,12 +182,17 @@ export function MenuBar({ onPresent, onOpenPicker }: MenuBarProps) {
           <button
             className="toolbar__theme-toggle"
             onClick={toggleEdgeLabels}
-            aria-label={showEdgeLabels ? 'Hide connection labels' : 'Show connection labels'}
-            title={showEdgeLabels ? 'Hide connection labels' : 'Show connection labels'}
+            aria-label={showEdgeLabels ? 'Hide connection tags' : 'Show connection tags'}
+            data-tooltip={showEdgeLabels ? 'Hide connection tags' : 'Show connection tags'}
           >
             {showEdgeLabels ? <TagIcon /> : <TagOffIcon />}
           </button>
-          <button className="toolbar__theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
+          <button
+            className="toolbar__theme-toggle"
+            onClick={toggleTheme}
+            aria-label="Swap theme"
+            data-tooltip="Swap theme"
+          >
             {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
           </button>
           <button

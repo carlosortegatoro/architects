@@ -23,11 +23,16 @@ export default function App() {
   const presenting = useDiagramStore((s) => s.presenting)
   const setPresenting = useDiagramStore((s) => s.setPresenting)
   const theme = useDiagramStore((s) => s.theme)
+  const diagramName = useDiagramStore((s) => s.diagramName)
   const rootRef = useRef<HTMLDivElement>(null)
   const [pickerOpen, setPickerOpen] = useState(!routeDiagramId)
   const pendingCloseRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useAutosave()
+
+  useEffect(() => {
+    document.title = diagramName ? `${diagramName} — Architectures` : 'Architectures'
+  }, [diagramName])
 
   useEffect(() => {
     if (pendingCloseRef.current) {
