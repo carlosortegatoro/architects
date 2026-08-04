@@ -84,4 +84,9 @@ router.get('/me', requireAuth, (req: AuthedRequest, res) => {
   res.json(req.user)
 })
 
+router.post('/mcp-token', requireAuth, (req: AuthedRequest, res) => {
+  const token = signToken({ sub: req.user!.id, email: req.user!.email }, '3650d')
+  res.json({ token })
+})
+
 export default router

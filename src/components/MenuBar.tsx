@@ -11,6 +11,8 @@ import {
   MoonIcon,
   PaperPlaneIcon,
   PlayIcon,
+  SplineOffIcon,
+  SplineOnIcon,
   SunIcon,
   TagIcon,
   TagOffIcon,
@@ -18,6 +20,7 @@ import {
   UserIcon,
 } from './Icon'
 import { ShareDialog } from './ShareDialog'
+import { McpTokenDialog } from './McpTokenDialog'
 import { EditableTitle } from './EditableTitle'
 
 type MenuBarProps = {
@@ -36,6 +39,8 @@ export function MenuBar({ onPresent, onOpenPicker }: MenuBarProps) {
   const toggleTheme = useDiagramStore((s) => s.toggleTheme)
   const showEdgeLabels = useDiagramStore((s) => s.showEdgeLabels)
   const toggleEdgeLabels = useDiagramStore((s) => s.toggleEdgeLabels)
+  const floatingEdges = useDiagramStore((s) => s.floatingEdges)
+  const toggleFloatingEdges = useDiagramStore((s) => s.toggleFloatingEdges)
   const diagramId = useDiagramStore((s) => s.diagramId)
   const diagramName = useDiagramStore((s) => s.diagramName)
   const renameDiagram = useDiagramStore((s) => s.renameDiagram)
@@ -46,6 +51,7 @@ export function MenuBar({ onPresent, onOpenPicker }: MenuBarProps) {
   const [accountOpen, setAccountOpen] = useState(false)
   const [fileMenuOpen, setFileMenuOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [mcpTokenOpen, setMcpTokenOpen] = useState(false)
 
   useEffect(() => {
     if (!accountOpen && !fileMenuOpen) return
@@ -189,6 +195,14 @@ export function MenuBar({ onPresent, onOpenPicker }: MenuBarProps) {
           </button>
           <button
             className="toolbar__theme-toggle"
+            onClick={toggleFloatingEdges}
+            aria-label={floatingEdges ? 'Use fixed connections' : 'Use flowing connections'}
+            data-tooltip={floatingEdges ? 'Use fixed connections' : 'Use flowing connections'}
+          >
+            {floatingEdges ? <SplineOnIcon /> : <SplineOffIcon />}
+          </button>
+          <button
+            className="toolbar__theme-toggle"
             onClick={toggleTheme}
             aria-label="Swap theme"
             data-tooltip="Swap theme"
@@ -205,6 +219,15 @@ export function MenuBar({ onPresent, onOpenPicker }: MenuBarProps) {
           {accountOpen && (
             <div className="toolbar__account-menu">
               <span className="toolbar__account-email">{user?.email}</span>
+              <button
+                className="btn"
+                onClick={() => {
+                  setAccountOpen(false)
+                  setMcpTokenOpen(true)
+                }}
+              >
+                Generate MCP token
+              </button>
               <button className="btn" onClick={() => logout()}>
                 Log out
               </button>
@@ -213,6 +236,7 @@ export function MenuBar({ onPresent, onOpenPicker }: MenuBarProps) {
         </div>
       </div>
       {shareOpen && diagramId && <ShareDialog diagramId={diagramId} onClose={() => setShareOpen(false)} />}
+      {mcpTokenOpen && <McpTokenDialog onClose={() => setMcpTokenOpen(false)} />}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser'
 import authRouter from './routes/auth.js'
 import diagramsRouter from './routes/diagrams.js'
 import { authedShareRouter, publicShareRouter } from './routes/share.js'
+import { createMcpApp } from './mcp/app.js'
 
 const app = express()
 const port = process.env.PORT ?? 3001
@@ -18,6 +19,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/diagrams', diagramsRouter)
 app.use('/api/diagrams', authedShareRouter)
 app.use('/api/share', publicShareRouter)
+app.use('/mcp', createMcpApp())
 
 if (process.env.NODE_ENV === 'production') {
   const distDir = path.join(dirname, '..', '..', 'dist')

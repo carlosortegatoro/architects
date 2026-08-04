@@ -20,10 +20,34 @@ const updateSchema = z.object({
 
 router.get('/', async (req: AuthedRequest, res) => {
   const result = await pool.query(
-    'SELECT id, name, created_at, updated_at FROM diagrams WHERE owner_id = $1 ORDER BY updated_at DESC',
+    'SELECT id, name, content, created_at, updated_at FROM diagrams WHERE owner_id = $1 ORDER BY updated_at DESC',
     [req.user!.id],
   )
-  res.json(result.rows)
+  res.json(
+    result.rows.map((row) => {
+      const content = row.content as DiagramFile
+      const systemCount = content.nodes.filter((n) => n.type === 'systemBox').length
+      const groupCount = content.nodes.filter((n) => n.type === 'group').length
+      const topLevelSystemNames = content.nodes
+        .filter((n) => n.type === 'systemBox' && n.parentId === undefined)
+        .map((n) => (n.data as { label: string }).label)
+      const useCaseNames = content.useCases.map((uc) => uc.name)
+
+      return {
+        id: row.id,
+        name: row.name,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        summary: {
+          systemCount,
+          groupCount,
+          connectionCount: content.edges.length,
+          useCaseNames,
+          topLevelSystemNames,
+        },
+      }
+    }),
+  )
 })
 
 router.post('/', async (req: AuthedRequest, res) => {
@@ -45,6 +69,19 @@ router.get('/:id', async (req: AuthedRequest, res) => {
     'SELECT id, name, content, created_at, updated_at FROM diagrams WHERE id = $1 AND owner_id = $2',
     [req.params.id, req.user!.id],
   )
+  const diagram = result.rows[0]
+  if (!diagram) {
+    res.status(404).json({ error: 'Not found' })
+    return
+  }
+  res.json(diagram)
+})
+
+router.get('/:id/version', async (req: AuthedRequest, res) => {
+  const result = await pool.query('SELECT updated_at FROM diagrams WHERE id = $1 AND owner_id = $2', [
+    req.params.id,
+    req.user!.id,
+  ])
   const diagram = result.rows[0]
   if (!diagram) {
     res.status(404).json({ error: 'Not found' })

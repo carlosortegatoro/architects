@@ -20,6 +20,7 @@ export function SystemBoxNode({ id, data, selected }: NodeProps<SystemBoxNodeTyp
   const removeNode = useDiagramStore((s) => s.removeNode)
   const presenting = useDiagramStore((s) => s.presenting)
   const focusedNodeId = useDiagramStore((s) => s.focusedNodeId)
+  const highlightedNodeIds = useDiagramStore((s) => s.highlightedNodeIds)
   const updateNodeInternals = useUpdateNodeInternals()
 
   const counts = data.handleCounts ?? DEFAULT_HANDLE_COUNTS
@@ -34,20 +35,24 @@ export function SystemBoxNode({ id, data, selected }: NodeProps<SystemBoxNodeTyp
   }
 
   const isCompact = presenting && !data.label.trim()
+  const isLogoOnly = data.displayMode === 'logoOnly'
+  const isTextOnly = data.displayMode === 'textOnly'
   const isFocused = editing || focusedNodeId === id
+  const isHighlighted = presenting && highlightedNodeIds.includes(id)
+  const isDimmed = presenting && highlightedNodeIds.length > 0 && !isHighlighted
 
   return (
     <div
-      className={`system-box${selected ? ' system-box--selected' : ''}${isCompact ? ' system-box--compact' : ''}${isFocused ? ' system-box--focused' : ''}`}
+      className={`system-box${selected ? ' system-box--selected' : ''}${(isCompact || isLogoOnly) ? ' system-box--compact' : ''}${isFocused ? ' system-box--focused' : ''}${isHighlighted ? ' system-box--highlighted' : ''}${isDimmed ? ' system-box--dimmed' : ''}`}
       style={{
         borderColor: data.color,
-        ...(isCompact ? { width: COMPACT_SIZE, height: COMPACT_SIZE } : {}),
+        ...(isCompact || isLogoOnly ? { width: COMPACT_SIZE, height: COMPACT_SIZE } : {}),
       }}
     >
       <NodeResizer
         isVisible={selected && !presenting}
-        minWidth={DEFAULT_WIDTH}
-        minHeight={DEFAULT_HEIGHT}
+        minWidth={isCompact || isLogoOnly ? COMPACT_SIZE : DEFAULT_WIDTH}
+        minHeight={isCompact || isLogoOnly ? COMPACT_SIZE : DEFAULT_HEIGHT}
       />
 
       {selected && !presenting && (
@@ -64,20 +69,22 @@ export function SystemBoxNode({ id, data, selected }: NodeProps<SystemBoxNodeTyp
       ))}
 
       <div className="system-box__main">
-        {presenting ? (
-          <div className="system-box__icon system-box__icon--static">
-            {data.icon && <img src={resolveIconSrc(data.icon)} alt="" />}
-          </div>
-        ) : (
-          <IconPicker
-            icon={data.icon}
-            onChange={(icon) => updateNodeData(id, { icon })}
-            triggerClassName="system-box__icon"
-            placeholderClassName="system-box__icon-placeholder"
-          />
+        {!isTextOnly && (
+          presenting ? (
+            <div className="system-box__icon system-box__icon--static">
+              {data.icon && <img src={resolveIconSrc(data.icon)} alt="" />}
+            </div>
+          ) : (
+            <IconPicker
+              icon={data.icon}
+              onChange={(icon) => updateNodeData(id, { icon })}
+              triggerClassName="system-box__icon"
+              placeholderClassName="system-box__icon-placeholder"
+            />
+          )
         )}
 
-        {!isCompact && (
+        {!isCompact && !isLogoOnly && (
           <div className="system-box__body" onDoubleClick={() => setEditing(true)}>
             {editing ? (
               <input
@@ -96,7 +103,7 @@ export function SystemBoxNode({ id, data, selected }: NodeProps<SystemBoxNodeTyp
             ) : (
               <div className="system-box__label">{data.label}</div>
             )}
-            <div className="system-box__underline" style={{ background: data.color }} />
+            {!isTextOnly && <div className="system-box__underline" style={{ background: data.color }} />}
           </div>
         )}
       </div>

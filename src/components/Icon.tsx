@@ -206,6 +206,91 @@ export function TagIcon() {
   )
 }
 
+export function AlignLeftIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M2 1.5V12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M2 4H9M2 10H12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function AlignHCenterIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M7 1.5V12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M4 4H10M2.5 10H11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function AlignRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M12 1.5V12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M5 4H12M2 10H12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function AlignTopIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M1.5 2H12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M4 2V9M10 2V12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function AlignVMiddleIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M1.5 7H12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M4 4V10M10 2.5V11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function AlignBottomIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M1.5 12H12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M4 5V12M10 2V12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function DistributeHorizontalIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M1.5 2.5V11.5M12.5 2.5V11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <rect x="4" y="4.5" width="2.2" height="5" rx="0.5" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="7.8" y="4.5" width="2.2" height="5" rx="0.5" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
+}
+
+export function DistributeVerticalIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M2.5 1.5H11.5M2.5 12.5H11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <rect x="4.5" y="4" width="5" height="2.2" rx="0.5" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="4.5" y="7.8" width="5" height="2.2" rx="0.5" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
+}
+
+export function DistributeGridIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1.5" y="1.5" width="4.5" height="4.5" rx="0.5" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="8" y="1.5" width="4.5" height="4.5" rx="0.5" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="1.5" y="8" width="4.5" height="4.5" rx="0.5" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="8" y="8" width="4.5" height="4.5" rx="0.5" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  )
+}
+
 export function TagOffIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -218,6 +303,68 @@ export function TagOffIcon() {
       />
       <circle cx="4.75" cy="4.25" r="0.75" fill="currentColor" />
       <path d="M1.5 1.5L12.5 12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function SplineOnIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <circle cx="2.5" cy="4" r="1.5" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="11.5" cy="10" r="1.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M4 4C7 4 7 10 10 10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function SplineOffIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="2.5" width="3" height="3" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="10" y="8.5" width="3" height="3" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M2.5 5.5V8.5H11.5V8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function ShapeFullIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1.5" y="2.5" width="11" height="9" rx="2" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="4.5" cy="6" r="1.3" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M4 9.5H10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function ShapeLogoOnlyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="2.5" y="2.5" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="7" cy="6.8" r="1.6" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
+}
+
+export function SpotlightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M7 0.5V2.2M7 11.8V13.5M0.5 7H2.2M11.8 7H13.5M2.1 2.1L3.35 3.35M10.65 10.65L11.9 11.9M2.1 11.9L3.35 10.65M10.65 3.35L11.9 2.1"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+export function ShapeTextOnlyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1.5" y="2.5" width="11" height="9" rx="2" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M4 6.5H10M4 8.5H8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   )
 }

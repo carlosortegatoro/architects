@@ -1,6 +1,12 @@
 import { useMemo } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
-import { AsteriskIcon, PlusIcon } from './Icon'
+import { AsteriskIcon, ShapeFullIcon, ShapeLogoOnlyIcon, ShapeTextOnlyIcon } from './Icon'
+
+const SHAPE_BUTTONS: { mode: 'full' | 'logoOnly' | 'textOnly'; icon: JSX.Element; title: string }[] = [
+  { mode: 'full', icon: <ShapeFullIcon />, title: 'New system (full)' },
+  { mode: 'logoOnly', icon: <ShapeLogoOnlyIcon />, title: 'New system (logo only)' },
+  { mode: 'textOnly', icon: <ShapeTextOnlyIcon />, title: 'New system (text only)' },
+]
 
 export function Sidebar() {
   const allNodes = useDiagramStore((s) => s.nodes)
@@ -14,17 +20,8 @@ export function Sidebar() {
   return (
     <aside className="panel sidebar">
       <div className="panel__header">
-        <h2>Systems</h2>
+        <h2>Shapes</h2>
         <div className="panel__header-actions">
-          <button
-            type="button"
-            className="btn btn--primary btn--icon"
-            title="Add system"
-            data-tooltip="New System"
-            onClick={() => addNode({ x: 200 + Math.random() * 100, y: 150 + Math.random() * 100 })}
-          >
-            <PlusIcon />
-          </button>
           <button
             type="button"
             className="btn btn--icon"
@@ -35,6 +32,22 @@ export function Sidebar() {
             <AsteriskIcon />
           </button>
         </div>
+      </div>
+      <div className="shapes-toolbox">
+        {SHAPE_BUTTONS.map(({ mode, icon, title }) => (
+          <button
+            key={mode}
+            type="button"
+            className="shapes-toolbox__btn"
+            title={title}
+            onClick={() => addNode({ x: 200 + Math.random() * 100, y: 150 + Math.random() * 100 }, mode)}
+          >
+            {icon}
+          </button>
+        ))}
+      </div>
+      <div className="panel__header">
+        <h2>Systems</h2>
       </div>
       <ul className="entity-list">
         {nodes.map((node) => (

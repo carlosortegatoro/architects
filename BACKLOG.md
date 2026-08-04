@@ -23,37 +23,45 @@ Ahora mismo `SystemBoxNode` tiene una forma fija hardcoded: logo opcional + text
 
 Complejidad media-baja: un campo nuevo con su fallback de compatibilidad + ajustes de render, todo en frontend.
 
-## Escenarios: grupos de casos de uso para presentación
+## ✅ Escenarios: grupos de casos de uso para presentación — implementado
 
-Hoy la visibilidad de casos de uso en presentación es un toggle individual (`hiddenUseCaseIds: string[]` en `diagramStore.ts`) — para pasar de un "escenario" a otro hay que desmarcar/marcar casos de uso uno a uno, poco fluido con varios casos de uso. Permitir definir grupos con nombre ("Escenario A", "Escenario B"...) y cambiar entre ellos con un clic durante la presentación. Necesitaría:
-- Nueva entidad persistida, p.ej. `Scenario { id, name, useCaseIds: string[] }`, en un array `scenarios: Scenario[]` dentro de `DiagramFile` — campo opcional con fallback a `[]` si no está en el JSON (mismo patrón que `showEdgeLabels`/`displayMode`).
-- Acción en el store para aplicar un escenario: calcular `hiddenUseCaseIds` como el complementario de `useCaseIds` del escenario elegido (todos los casos de uso que no estén en el grupo pasan a oculto) y reutilizar el mecanismo de filtrado ya existente en `Canvas.tsx` (`visibleEdges`/`visibleNodes`) sin tocarlo.
-- UI de gestión (crear/editar/borrar escenario, marcar qué casos de uso incluye) — probablemente en el mismo sitio donde hoy se gestionan los casos de uso.
-- UI de cambio rápido durante presentación: un selector o fila de botones con los nombres de los escenarios, visible en el modo presentación (junto a `PresentationLegend`/`UseCaseLegend`), que aplica el escenario elegido de un clic.
+`Scenario { id, name, useCaseIds }` en `DiagramFile.scenarios`, con acciones `addScenario`/`updateScenario`/`removeScenario`/`applyScenario` en `diagramStore.ts`. `applyScenario` calcula `hiddenUseCaseIds` como el complementario de `useCaseIds`, reutilizando el filtrado existente en `Canvas.tsx` sin tocarlo. Gestión de escenarios junto a los casos de uso; cambio rápido de un clic en `PresentationLegend` durante la presentación.
 
-Complejidad media-baja: un modelo nuevo con su fallback de compatibilidad + una acción derivada del estado que ya existe (`hiddenUseCaseIds`), sin tocar el motor de filtrado del canvas ni el backend.
+## ✅ Resaltado de sistemas/conexiones y puntero visible en presentación — implementado
 
-## Undo / Redo
+`highlightedNodeIds` efímero en el store (no persistido), con click normal (resalta solo ese elemento) y Ctrl/Cmd+Click (multi-selección) habilitados en modo presentación vía `onNodeClick`/`onEdgeClick` en `Canvas.tsx`. `SystemBoxNode`/`UseCaseEdge` aplican clases `--highlighted`/`--dimmed`. Spotlight cursor (`SpotlightCursor.tsx`) como capa `position: fixed` que sigue el mouse, con toggle en `PresentationControls`.
 
-Factible, no implementado. Resumen de lo que haría falta:
+## ✅ MCP server para crear arquitecturas "textualmente" — implementado (remoto, multi-usuario)
 
-1. **Mecanismo de historial**: `zundo` (middleware de Zustand, resuelve snapshots y undo()/redo() out of the box) vs. stack manual de snapshots (mismo shape que `toDiagramFile()`).
-2. **Granularidad de los pasos** — la decisión de diseño clave. No delegar en capturar cada `set()`: hay que checkpointear solo en commits discretos (`onNodeDragStop`, no `onNodeDrag`; blur de un input, no cada tecla; añadir/borrar nodo o caso de uso; conectar/reconectar arista). Si no, arrastrar una caja generaría cientos de pasos inútiles.
-3. **Interacción con autoguardado**: el `undo()` debe pasar por el mismo `set()` que marca `isDirty: true`, para que el resultado también se autoguarde vía `useAutosave`.
-4. **Alcance**: historial solo en memoria por pestaña (se pierde al recargar) y por diagrama (se resetea en `openDiagram`/`closeDiagram`) — no persistir en `localStorage`/BD.
-5. **UI**: atajos `Ctrl+Z`/`Ctrl+Shift+Z` (listener `keydown` global) + opcionalmente botones en `MenuBar`.
+Servidor MCP montado dentro del propio Express (`server/mcp/`, no un servicio/dyno separado), con transporte HTTP (`StreamableHTTPServerTransport` en modo stateless) en vez del `stdio` original — necesario porque `stdio` requiere un proceso local hablando por stdin/stdout con un cliente MCP también local, incompatible con un hosting HTTP-only como Heroku. Mismos 7 tools que antes (`list_diagrams`, `create_diagram`, `get_diagram`, `rename_diagram`, `create_system`, `create_connection`, `set_use_case`), ahora en `server/mcp/server.ts`, operando contra la API REST existente vía read-modify-write igual que antes.
 
-Complejidad media: no es añadir una librería, es tocar la mayoría de mutadores de `src/store/diagramStore.ts` para decidir dónde va cada checkpoint — pero sigue siendo solo frontend, sin cambios de backend/modelo de datos persistido.
+Cada usuario de la app tiene su **propio token MCP**, ya no un único token de servicio compartido:
+- El token es un JWT stateless normal (`signToken`/`verifyToken`, mismo mecanismo que ya usa el resto de la app), emitido por `POST /api/auth/mcp-token` (`server/routes/auth.ts`), sin revocación individual.
+- Cada request al endpoint `/mcp` pasa por `requireBearerAuth` + un verifier propio (`server/lib/mcpAuth.ts`) que, además de validar la firma del JWT, comprueba en Postgres que el usuario del token sigue existiendo (protege contra tokens de cuentas ya borradas, sin columnas nuevas en `users`).
+- Internamente, cada tool opera "como" el usuario del token: `server/mcp/server.ts` firma un JWT efímero de 5 minutos con el `userId`/`email` del Bearer token y lo manda como `Cookie: token=...` en llamadas internas a la API REST (`server/mcp/apiClient.ts`) — reutiliza `requireAuth`/`req.user!.id` tal cual, sin tocar `server/routes/diagrams.ts`.
 
-## MCP server para crear arquitecturas "textualmente"
+**Ya resuelto por Carlos como desarrollador/operador** (una sola vez, por terminal, nunca visible para un usuario final de la app):
+1. `npm install` en la raíz del repo — trajo `@modelcontextprotocol/sdk@1.30.0`. Confirmado instalado y compilando (`tsc -p server/tsconfig.json --noEmit` limpio).
+2. `allowedHosts` fijado con el dominio real de Heroku (`cot-architectures-f99ad2300e12.herokuapp.com`) en `server/mcp/app.ts`, activo solo cuando `NODE_ENV === 'production'` (en desarrollo sigue el default `127.0.0.1`, que ya protege correctamente en local). Sin esto, la protección anti DNS-rebinding de `createMcpExpressApp()` solo acepta `localhost`/`127.0.0.1` como `Host` y habría rechazado con 403 toda request MCP real en producción, aunque el Bearer token fuera válido.
 
-Exponer un servidor MCP sobre esta app para que un LLM (Claude, Cursor, etc.) pueda crear/editar diagramas describiéndolos en texto ("crea una caja para el sistema X conectada a Y con el caso de uso Z"), en vez de solo por UI. Necesitaría:
-- Un servidor MCP (Node, probablemente en `server/`) que expusiera tools tipo `create_system`, `create_connection`, `set_use_case`, `list_diagram`, operando contra el mismo modelo de datos (`DiagramFile`) vía la API REST ya existente (`/api/diagrams/:id`) o directamente contra la BD.
-- Autenticación: el server MCP necesitaría credenciales para actuar en nombre de un usuario — decidir si usa un token de servicio o delega en la sesión del usuario que lo invoca.
-- Decisión de diseño: ¿el LLM manipula el `content` JSONB directamente (más simple, más frágil ante cambios de esquema) o pasa por operaciones semánticas de alto nivel (más trabajo, más robusto y más fácil de razonar para el LLM)?
-- Relacionado con la edición colaborativa de abajo: si el LLM edita mientras un humano tiene el diagrama abierto en el navegador, aplican los mismos problemas de sincronización en tiempo real.
+**Limpieza de seguridad tras la migración (completada):**
+- Eliminado el paquete standalone `mcp-server/` (versión anterior, con token único y `stdio`) — nunca estuvo trackeado en git (confirmado vía `git status`), sin ningún token real committeado (su `.env.example` solo tenía placeholders).
+- Eliminado `server/scripts/issue-service-token.ts` (emitía un JWT de 10 años para un único usuario/servicio, mecanismo que un token robado no podía revocarse) y su entrada `"issue-service-token"` en `package.json` — sustituido por el flujo de tokens por usuario vía `POST /api/auth/mcp-token`.
 
-Complejidad alta: nuevo servicio, nueva superficie de autenticación, y decisiones de diseño de API — pero es aditivo, no rediseña lo que ya existe.
+**Lo que hace un usuario final de la app** (solo clics en el navegador, cero terminal/config):
+1. Abre el menú de cuenta (icono de usuario en la barra superior) y pulsa "Generate MCP token".
+2. Copia el token que aparece en el diálogo (no se vuelve a mostrar).
+3. Lo pega como `Authorization: Bearer <token>` en la configuración de su propio cliente MCP (Claude Desktop, Cursor, etc.), apuntando a `https://<dominio-de-la-app>/mcp`.
+
+## Exportar/importar desde Lucidchart
+
+Estudiar si es viable interoperar con Lucidchart: exportar un diagrama de esta app a un formato que Lucidchart pueda abrir, y/o importar un diagrama de Lucidchart hacia el modelo de datos propio (`DiagramFile`). Necesitaría primero investigar, antes de diseñar nada:
+- Qué formato de intercambio ofrece Lucidchart realmente — su API pública (documentos vía [Lucidchart Developer API](https://developer.lucid.co/)) frente a exportar/importar `.lucid`/CSV/Visio (`.vsdx`), que es un formato propietario no siempre bien documentado.
+- Si el mapeo de conceptos es razonable: cajas de sistema → shapes, conexiones con casos de uso (color + animación + posible multi-etiqueta por edge) → líneas de Lucidchart, que no tiene el concepto de "caso de uso" ni de agrupación de conexiones por color — probablemente se perdería información en la ida y vuelta (lossy), no es un mapeo 1:1.
+- Si merece más la pena partir de un formato intermedio ya estándar (p.ej. Visio `.vsdx`, que Lucidchart sí importa/exporta) en vez de atacar su API o formato nativo directamente.
+- Autenticación si se usa la API oficial (OAuth por cuenta de Lucidchart del usuario).
+
+Complejidad media-alta: antes de cualquier código hay que validar si el mapeo de modelo de datos es viable sin pérdida excesiva de información — puede acabar siendo solo exportación unidireccional (esta app → Lucidchart) si la importación resulta poco fiable.
 
 ## Edición colaborativa (multi-usuario simultáneo)
 

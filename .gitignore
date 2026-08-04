@@ -4,3 +4,4 @@ dist-server
 .DS_Store
 *.log
 .env
+.obsidian/

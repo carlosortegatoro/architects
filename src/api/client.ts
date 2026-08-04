@@ -30,6 +30,16 @@ export type DiagramSummary = {
   updated_at: string
 }
 
+export type DiagramContentSummary = {
+  systemCount: number
+  groupCount: number
+  connectionCount: number
+  useCaseNames: string[]
+  topLevelSystemNames: string[]
+}
+
+export type DiagramListEntry = DiagramSummary & { summary: DiagramContentSummary }
+
 export type DiagramRecord = DiagramSummary & { content: DiagramFile }
 
 export type ShareLink = {
@@ -53,16 +63,18 @@ export const authApi = {
     request<CurrentUser>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
   me: () => request<CurrentUser>('/auth/me'),
+  createMcpToken: () => request<{ token: string }>('/auth/mcp-token', { method: 'POST' }),
 }
 
 export const diagramsApi = {
-  list: () => request<DiagramSummary[]>('/diagrams'),
+  list: () => request<DiagramListEntry[]>('/diagrams'),
   create: (name: string) => request<DiagramSummary>('/diagrams', { method: 'POST', body: JSON.stringify({ name }) }),
   get: (id: string) => request<DiagramRecord>(`/diagrams/${id}`),
   update: (id: string, patch: { name?: string; content?: DiagramFile }) =>
     request<DiagramSummary>(`/diagrams/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
   duplicate: (id: string) => request<DiagramSummary>(`/diagrams/${id}/duplicate`, { method: 'POST' }),
   remove: (id: string) => request<void>(`/diagrams/${id}`, { method: 'DELETE' }),
+  getVersion: (id: string) => request<{ updated_at: string }>(`/diagrams/${id}/version`),
 }
 
 export const shareApi = {

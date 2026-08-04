@@ -22,6 +22,7 @@ export type SystemNodeData = {
   color: string
   icon?: string
   handleCounts?: HandleCounts
+  displayMode?: 'full' | 'logoOnly' | 'textOnly'
 }
 
 export type GroupNodeData = {
@@ -34,6 +35,12 @@ export type GroupNodeData = {
 export type ConnectionEdgeData = {
   useCaseIds: string[]
   label?: string
+}
+
+export type Scenario = {
+  id: string
+  name: string
+  useCaseIds: string[]
 }
 
 export type DiagramFile = {
@@ -57,4 +64,6 @@ export type DiagramFile = {
   }>
   useCases: UseCase[]
   showEdgeLabels?: boolean
+  floatingEdges?: boolean
+  scenarios?: Scenario[]
 }

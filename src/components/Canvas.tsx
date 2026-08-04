@@ -7,6 +7,7 @@ import {
   ReactFlow,
   useReactFlow,
   type EdgeMouseHandler,
+  type NodeMouseHandler,
   type OnNodeDrag,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -45,6 +46,9 @@ export function Canvas({ interactive = true }: CanvasProps) {
   const hiddenUseCaseIds = useDiagramStore((s) => s.hiddenUseCaseIds)
   const findGroupAt = useDiagramStore((s) => s.findGroupAt)
   const setDropTargetGroup = useDiagramStore((s) => s.setDropTargetGroup)
+  const setHighlightedNodes = useDiagramStore((s) => s.setHighlightedNodes)
+  const toggleHighlightedNode = useDiagramStore((s) => s.toggleHighlightedNode)
+  const clearHighlight = useDiagramStore((s) => s.clearHighlight)
 
   const visibleEdges = useMemo(() => {
     if (!presenting || hiddenUseCaseIds.length === 0) return edges
@@ -83,7 +87,7 @@ export function Canvas({ interactive = true }: CanvasProps) {
     const groupHasVisibleChild = new Map<string, boolean>()
     for (const node of nodes) {
       if (node.parentId === undefined) continue
-      if (hiddenByDirectEdges.get(node.id) !== true) {
+      if (nodeHasVisibleUseCase.get(node.id) === true) {
         groupHasVisibleChild.set(node.parentId, true)
       }
     }
@@ -101,11 +105,31 @@ export function Canvas({ interactive = true }: CanvasProps) {
   }, [nodes, edges, presenting, hiddenUseCaseIds])
 
   const onEdgeClick: EdgeMouseHandler = useCallback(
-    (_, edge) => interactive && setSelectedEdge(edge.id),
-    [setSelectedEdge, interactive],
+    (e, edge) => {
+      if (interactive) {
+        setSelectedEdge(edge.id)
+        return
+      }
+      if (!presenting) return
+      if (e.metaKey || e.ctrlKey) toggleHighlightedNode(edge.id)
+      else setHighlightedNodes([edge.id])
+    },
+    [setSelectedEdge, interactive, presenting, setHighlightedNodes, toggleHighlightedNode],
   )
 
-  const onPaneClick = useCallback(() => setSelectedEdge(null), [setSelectedEdge])
+  const onNodeClick: NodeMouseHandler = useCallback(
+    (e, node) => {
+      if (!presenting) return
+      if (e.metaKey || e.ctrlKey) toggleHighlightedNode(node.id)
+      else setHighlightedNodes([node.id])
+    },
+    [presenting, setHighlightedNodes, toggleHighlightedNode],
+  )
+
+  const onPaneClick = useCallback(() => {
+    setSelectedEdge(null)
+    if (presenting) clearHighlight()
+  }, [setSelectedEdge, presenting, clearHighlight])
 
   const onNodeDrag: OnNodeDrag<SystemNode> = useCallback(
     (_, node) => {
@@ -133,6 +157,7 @@ export function Canvas({ interactive = true }: CanvasProps) {
         onConnect={interactive ? onConnect : undefined}
         onReconnect={interactive ? onReconnect : undefined}
         onEdgeClick={onEdgeClick}
+        onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         onNodeDrag={interactive ? onNodeDrag : undefined}
         onNodeDragStop={interactive ? onNodeDragStop : undefined}
