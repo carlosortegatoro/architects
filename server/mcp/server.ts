@@ -11,12 +11,60 @@ const DEFAULT_NODE_HEIGHT = 110
 const DEFAULT_GROUP_COLOR = '#475569'
 const GROUP_WIDTH = 400
 const GROUP_HEIGHT = 300
+const GROUP_MIN_WIDTH = 240
+const GROUP_MIN_HEIGHT = 160
+const GROUP_CHILD_PADDING = 40
+const GROUP_HEADER_PADDING = 60
 
 const PARTICLE_SPEEDS: ParticleSpeed[] = ['real-time', 'near-real-time', 'batch', 'zero-copy', 'none']
 const PARTICLE_SHAPES: ParticleShape[] = ['circle', 'cut-corner-rect']
 
 function nextId(prefix: string) {
   return `${prefix}-${randomUUID()}`
+}
+
+function absolutePositionOfNode(
+  node: DiagramFile['nodes'][number],
+  byId: Map<string, DiagramFile['nodes'][number]>,
+): { x: number; y: number } {
+  if (!node.parentId) return node.position
+  const parent = byId.get(node.parentId)
+  if (!parent) return node.position
+  const parentAbs = absolutePositionOfNode(parent, byId)
+  return { x: parentAbs.x + node.position.x, y: parentAbs.y + node.position.y }
+}
+
+function isInsideBounds(
+  node: { x: number; y: number; width: number; height: number },
+  bounds: { x: number; y: number; width: number; height: number },
+) {
+  return (
+    node.x >= bounds.x &&
+    node.y >= bounds.y &&
+    node.x + node.width <= bounds.x + bounds.width &&
+    node.y + node.height <= bounds.y + bounds.height
+  )
+}
+
+function fitGroupToChildren(
+  children: Array<{ position: { x: number; y: number }; width?: number; height?: number; type?: string }>,
+): { width: number; height: number } | null {
+  if (children.length === 0) return null
+
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  for (const child of children) {
+    const width = child.width ?? (child.type === 'group' ? GROUP_WIDTH : DEFAULT_NODE_WIDTH)
+    const height = child.height ?? (child.type === 'group' ? GROUP_HEIGHT : DEFAULT_NODE_HEIGHT)
+    maxX = Math.max(maxX, child.position.x + width)
+    maxY = Math.max(maxY, child.position.y + height)
+  }
+
+  return {
+    width: Math.max(GROUP_MIN_WIDTH, maxX + GROUP_CHILD_PADDING),
+    height: Math.max(GROUP_MIN_HEIGHT, maxY + GROUP_HEADER_PADDING),
+  }
 }
 
 export function buildMcpServer(user: { userId: string; email: string }) {
@@ -141,8 +189,9 @@ export function buildMcpServer(user: { userId: string; email: string }) {
     async ({ diagramId, label, color, position, displayMode, parentId }) => {
       const nodeId = nextId('node')
       await mutateDiagram(diagramId, (content) => {
+        let parent: DiagramFile['nodes'][number] | undefined
         if (parentId !== undefined) {
-          const parent = content.nodes.find((n) => n.id === parentId)
+          parent = content.nodes.find((n) => n.id === parentId)
           if (!parent) throw new Error(`Unknown parentId: ${parentId}`)
           if (parent.type !== 'group') throw new Error(`parentId ${parentId} is not a group node`)
         }
@@ -159,6 +208,37 @@ export function buildMcpServer(user: { userId: string; email: string }) {
             ...(displayMode && displayMode !== 'full' ? { displayMode } : {}),
           },
         })
+        if (parent) {
+          const byId = new Map(content.nodes.map((n) => [n.id, n]))
+          const parentAbs = absolutePositionOfNode(parent, byId)
+          const parentWidth = parent.width ?? GROUP_WIDTH
+          const parentHeight = parent.height ?? GROUP_HEIGHT
+
+          const children = content.nodes
+            .filter((n) => n.id !== parent!.id)
+            .map((n) => {
+              const abs = absolutePositionOfNode(n, byId)
+              const width = n.width ?? (n.type === 'group' ? GROUP_WIDTH : DEFAULT_NODE_WIDTH)
+              const height = n.height ?? (n.type === 'group' ? GROUP_HEIGHT : DEFAULT_NODE_HEIGHT)
+              return { node: n, abs, width, height }
+            })
+            .filter(
+              ({ node, abs, width, height }) =>
+                node.parentId === parent!.id ||
+                isInsideBounds({ ...abs, width, height }, { ...parentAbs, width: parentWidth, height: parentHeight }),
+            )
+            .map(({ abs, width, height }) => ({
+              position: { x: abs.x - parentAbs.x, y: abs.y - parentAbs.y },
+              width,
+              height,
+            }))
+
+          const fitted = fitGroupToChildren(children)
+          if (fitted) {
+            parent.width = fitted.width
+            parent.height = fitted.height
+          }
+        }
       })
       return { content: [{ type: 'text', text: JSON.stringify({ nodeId }, null, 2) }] }
     },

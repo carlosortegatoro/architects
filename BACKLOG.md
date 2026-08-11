@@ -4,24 +4,13 @@ Ideas discutidas pero no implementadas (o pendientes de decidir). No es un roadm
 
 Ordenadas de más fácil a más compleja de desarrollar.
 
-## Auto-align de cajas al seleccionar
+## ✅ Auto-align de cajas al seleccionar — implementado
 
-Al seleccionar varias cajas (ya soportado vía Shift+drag, ver `Canvas.tsx`), ofrecer alinearlas (por bordes o centros, horizontal/vertical) con un clic — patrón común en Figma/Miro. Necesitaría:
-- Leer la selección activa de React Flow (`getNodes().filter(n => n.selected)`).
-- Botones de alineación (izquierda/centro/derecha, arriba/medio/abajo) que recalculen `position` de los nodos seleccionados y llamen a `onNodesChange` o a un nuevo action del store.
-- UI: podría vivir en una barra flotante contextual que aparece solo cuando hay ≥2 nodos seleccionados.
+`AlignmentToolbar.tsx`: barra flotante contextual que aparece solo con ≥2 nodos seleccionados, con botones de alineación (izquierda/centro/derecha, arriba/medio/abajo) que llaman a `alignNodes` en `diagramStore.ts`. Con ≥3 nodos seleccionados aparecen además los botones de distribución (horizontal/vertical/grid) vía `distributeNodes`.
 
-La más sencilla: cambio contenido en el frontend, sin tocar el modelo de datos persistido ni el backend.
+## ✅ Formas alternativas para "systems" (logo-only / texto-only) — implementado
 
-## Formas alternativas para "systems" (logo-only / texto-only)
-
-Ahora mismo `SystemBoxNode` tiene una forma fija hardcoded: logo opcional + texto. Permitir elegir la forma por caja (p.ej. "solo texto", "solo logo", "logo + texto" actual) para poder representar sistemas más compactos. Necesitaría:
-- Nuevo campo persistido en los datos del nodo (`SystemNodeData`), tipo `displayMode: 'full' | 'logoOnly' | 'textOnly'`.
-- Ajustar `SystemBoxNode.tsx` para renderizar condicionalmente logo/texto según el modo, y redimensionar la caja en consecuencia.
-- UI para elegir el modo (probablemente en el panel de propiedades/sidebar del nodo).
-- Backward-compat: campo opcional con fallback a `'full'` si no está en el JSON (mismo patrón que `showEdgeLabels`).
-
-Complejidad media-baja: un campo nuevo con su fallback de compatibilidad + ajustes de render, todo en frontend.
+`SystemNodeData.displayMode?: 'full' | 'logoOnly' | 'textOnly'` en `types.ts`, con fallback a `'full'` cuando no está presente (mismo patrón que `showEdgeLabels`). `SystemBoxNode.tsx` renderiza condicionalmente logo/texto según `data.displayMode`.
 
 ## ✅ Escenarios: grupos de casos de uso para presentación — implementado
 
@@ -53,15 +42,62 @@ Cada usuario de la app tiene su **propio token MCP**, ya no un único token de s
 2. Copia el token que aparece en el diálogo (no se vuelve a mostrar).
 3. Lo pega como `Authorization: Bearer <token>` en la configuración de su propio cliente MCP (Claude Desktop, Cursor, etc.), apuntando a `https://<dominio-de-la-app>/mcp`.
 
-## Exportar/importar desde Lucidchart
+## ✅ Conexiones fluidas (floating edges, centroide a centroide) — implementado
 
-Estudiar si es viable interoperar con Lucidchart: exportar un diagrama de esta app a un formato que Lucidchart pueda abrir, y/o importar un diagrama de Lucidchart hacia el modelo de datos propio (`DiagramFile`). Necesitaría primero investigar, antes de diseñar nada:
-- Qué formato de intercambio ofrece Lucidchart realmente — su API pública (documentos vía [Lucidchart Developer API](https://developer.lucid.co/)) frente a exportar/importar `.lucid`/CSV/Visio (`.vsdx`), que es un formato propietario no siempre bien documentado.
-- Si el mapeo de conceptos es razonable: cajas de sistema → shapes, conexiones con casos de uso (color + animación + posible multi-etiqueta por edge) → líneas de Lucidchart, que no tiene el concepto de "caso de uso" ni de agrupación de conexiones por color — probablemente se perdería información en la ida y vuelta (lossy), no es un mapeo 1:1.
-- Si merece más la pena partir de un formato intermedio ya estándar (p.ej. Visio `.vsdx`, que Lucidchart sí importa/exporta) en vez de atacar su API o formato nativo directamente.
-- Autenticación si se usa la API oficial (OAuth por cuenta de Lucidchart del usuario).
+Antes, toda conexión sin handle fijado manualmente salía siempre por `top` (primer handle registrado en `nodeHandles.tsx`), lo cual era especialmente visible en diagramas creados por MCP (`create_connection` nunca fija handle). Se descartó la primera versión (auto-lado dinámico siempre activo, ancla en el lado más cercano con clamp) por feedback directo: no debía ser automático, y la geometría de "lado más cercano" se veía poco natural.
 
-Complejidad media-alta: antes de cualquier código hay que validar si el mapeo de modelo de datos es viable sin pérdida excesiva de información — puede acabar siendo solo exportación unidireccional (esta app → Lucidchart) si la importación resulta poco fiable.
+Solución final: toggle `floatingEdges` a nivel de diagrama (persistido en `DiagramFile`, off por defecto), en el mismo botón de la toolbar junto a los demás toggles (`SplineOnIcon`/`SplineOffIcon`). Cuando está activo, `UseCaseEdge.tsx` calcula en cada render el punto donde la línea recta centroide-a-centroide entre ambas cajas cruza el borde de cada una (intersección rayo-rectángulo, no "lado más cercano con clamp"), solo para edges sin `sourceHandle`/`targetHandle` fijado a mano — las conexiones arrastradas manualmente a un handle concreto nunca se ven afectadas.
+
+## ✅ Hitbox de handles/resize ampliado — implementado
+
+Los puntos de conexión (`.react-flow__handle`, 6×6px) y las manijas de resize (`.react-flow__resize-control.handle`, 5×5px) eran 100% default de `@xyflow/react`, sin ningún override previo — obligaban a apuntar con extrema precisión. Solución CSS-only en `src/styles.css`: pseudo-elemento `::after` con `inset` negativo sobre ambas clases, que amplía el área clicable invisible sin cambiar el tamaño visual del punto en reposo. No se tocó ningún componente React.
+
+## ✅ Auto-resize de grupos (fit-to-children) — implementado
+
+Los grupos se creaban con tamaño fijo (`GROUP_WIDTH=400`/`GROUP_HEIGHT=300`) y nunca se recalculaban al añadir sistemas dentro — con 3+ sistemas el grupo quedaba demasiado pequeño para contenerlos visualmente, típicamente al crear vía MCP. Función pura `fitGroupToChildren` (bounding box de los hijos + padding fijo, con mínimo `GROUP_MIN_WIDTH=240`/`GROUP_MIN_HEIGHT=160`) duplicada en ambos lados, igual que ya ocurre con `GROUP_WIDTH`/`GROUP_HEIGHT`:
+- **Frontend** (`diagramStore.ts`): integrada en `onNodesChange`, tras resolver las reasignaciones de `parentId` al soltar un drag — recalcula el tamaño de cualquier grupo que ganó o perdió un hijo en ese batch. Puede crecer y encoger (fit real, no solo crecer). No se recalcula en cada frame durante el arrastre, solo al soltar.
+- **Backend MCP** (`server/mcp/server.ts`): integrada en `create_system` cuando se pasa `parentId` — tras insertar el nuevo nodo hijo, recalcula el tamaño del grupo padre a partir de todos sus hijos actuales, dentro de la misma mutación.
+
+El usuario sigue pudiendo redimensionar un grupo manualmente en cualquier momento vía `NodeResizer`; el fit-to-content solo se dispara en los eventos descritos, no de forma continua.
+
+## 🔍 Exportar/importar desde Lucidchart — investigado, solo viable en un sentido
+
+Investigación profunda completada (2026-08-05) contra la documentación oficial de Lucid (`developer.lucid.co`, `lucid.readme.io`, foros de soporte). Conclusión: **no es viable bidireccional**, y la asimetría está confirmada al nivel del propio esquema de la API, no es una limitación de esfuerzo de implementación.
+
+**Exportar (esta app → Lucidchart): técnicamente viable.**
+- Mecanismo: "Standard Import" — un `.lucid` (zip con `document.json` + carpetas opcionales `/data`/`/images`) enviado a `POST https://api.lucid.co/v1/documents/create`. Crea un documento nuevo únicamente; no puede modificar uno existente.
+- Auth: **API key de cuenta propia** (no OAuth2 con flujo de consentimiento por usuario) — ajusta bien al perfil de este proyecto (un solo operador probando contra su propia cuenta).
+- Se preserva razonablemente: color, texto, imagen/icono personalizado (si es SVG se rasteriza a PNG, perdiendo escalabilidad vectorial pero no apariencia), posición/tamaño, y anidamiento de grupos (`GroupNodeData`/`parentId` mapea limpio al modelo `items` de grupos de Lucid).
+- **Bloqueador previo a cualquier prototipo**: el Developer Portal de Lucid (API REST y Extension API) requiere plan **Team o Enterprise** — confirmado directamente por soporte de Lucid. Una cuenta Free/Individual no puede llamar al endpoint sin importar la calidad del código.
+
+**Importar (Lucidchart → esta app): no viable con la API documentada.**
+- El único endpoint de lectura (`GET /documents/<id>/contents`) devuelve tipos de shape y topología de conexiones (qué conecta con qué), pero el propio equipo de soporte de Lucid confirma explícitamente que **no** incluye color, posición, tamaño ni fuente — exactamente los datos necesarios para reconstruir algo visualmente fiel. No es un "vamos a intentarlo y ver", el plano de datos visual no está expuesto por ningún canal.
+- Los formatos de intercambio tampoco resuelven esto: Lucidchart exporta a `.vsdx` (con una regresión de fidelidad documentada en conectores al reabrir en Visio) pero **no exporta a `.drawio`/`.xml`** — solo lo importa, y en beta. SVG hacia Lucidchart no es una importación de diagrama editable: se convierte a imagen de shape, no a objetos distintos.
+
+**Se pierde siempre, sin importar el formato elegido** (confirmado, no aproximable con más esfuerzo):
+- **Líneas paralelas multi-caso-de-uso**: un `line` de Standard Import tiene un solo objeto `stroke`. No existe el concepto de "N líneas semánticamente distintas para el mismo edge" en ningún formato investigado. Solo aproximable con workarounds (N líneas separadas con offset manual, o metadata invisible en la UI de Lucidchart).
+- **Animación de partículas** (`speed` → `animateMotion`): comportamiento de runtime, ningún formato de diagrama estático captura estado de animación. Pérdida total e inevitable por definición, no una brecha de fidelidad a mejorar.
+- **Escenarios**: lógica de presentación propia de la app, sin equivalente en ningún formato — solo recuperable si se inventa una convención propia de metadata custom en ambos extremos.
+- **`handleCounts`**: sin equivalente directo (Lucidchart usa "smart lines" sin conteo fijo de handles por lado).
+
+**Recomendación si se retoma**: prototipar solo la dirección exportación (Standard Import + API key), y solo tras confirmar que la cuenta de Lucidchart relevante ya tiene plan Team/Enterprise. Tratar como una función de "exportar una copia aproximada a Lucidchart", nunca como sincronización o importación real.
+
+## Librería de sistemas reutilizables
+
+Hoy cada `create_system`/caja de sistema se crea desde cero cada vez (nombre, logo/icono, color, todo a mano o dictado al MCP en cada diagrama). Idea: un catálogo de sistemas "de librería" —definidos una vez con nombre, logo/icono y color ya fijados— reutilizable entre diagramas distintos, en vez de repetir la configuración cada vez que ese mismo sistema (p.ej. "Stripe", "Postgres", "Auth0") aparece en una arquitectura nueva.
+
+Incluiría probablemente:
+- Conexiones "habituales" pre-asociadas al sistema de librería (p.ej. si el sistema de librería es "Stripe", sugerir automáticamente que suele conectar con un "Backend"/"Checkout service" con un use case tipo "Payment"), para no repetir también el patrón de integración cada vez.
+- Alcance de esta librería: ¿por usuario, o global a la app? Afecta si vive en Postgres ligada a `owner_id` o es un catálogo compartido.
+- Relación con [[MCP: uso automático de la librería]] (ver entrada siguiente) — si existe la librería, tiene sentido que el propio MCP la conozca y la use sin que haya que pedírselo explícitamente.
+
+No evaluada la complejidad todavía — depende de si se decide alcance por usuario o global, y si las "conexiones habituales" son solo una sugerencia en la UI o algo que el MCP aplica automáticamente.
+
+## MCP: uso automático de la librería de sistemas
+
+Depende de la entrada anterior (librería de sistemas reutilizables) — sin catálogo, esto no aplica. Una vez exista, la idea es que las tools del MCP (`server/mcp/server.ts`) reconozcan automáticamente cuando el nombre de un sistema que se está creando coincide con uno ya definido en la librería, y en ese caso aplique su logo/color/icono ya configurado sin que haya que especificarlo en cada llamada a `create_system`. Reduciría la carga de tener que describir "usa el logo de Stripe, color tal" cada vez que ese mismo sistema aparece en una arquitectura nueva generada por MCP.
+
+Puntos a decidir cuando se ataque: cómo hace el matching (¿nombre exacto, alias, fuzzy?), qué pasa si el nombre coincide pero el usuario quiere un override puntual de color/logo para ese diagrama en concreto, y si esto se expone como comportamiento automático silencioso o como una sugerencia que el propio agente MCP puede aceptar o no (ver [[feedback_design_corrections]] sobre la preferencia de Carlos por evitar comportamiento automático no solicitado — probablemente aplique aquí también, a confirmar con él antes de implementar).
 
 ## Edición colaborativa (multi-usuario simultáneo)
 

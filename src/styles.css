@@ -814,6 +814,16 @@ body,
   text-align: center;
 }
 
+.react-flow__resize-control.handle {
+  position: relative;
+}
+
+.react-flow__resize-control.handle::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+}
+
 .use-case-edge__badge {
   display: flex;
   flex-direction: column;

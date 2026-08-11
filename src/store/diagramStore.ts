@@ -26,6 +26,10 @@ export type DistributeMode = 'horizontal' | 'vertical' | 'grid'
 
 const GROUP_WIDTH = 400
 const GROUP_HEIGHT = 300
+const GROUP_MIN_WIDTH = 240
+const GROUP_MIN_HEIGHT = 160
+const GROUP_CHILD_PADDING = 40
+const GROUP_HEADER_PADDING = 60
 
 function isInsideBounds(
   node: { x: number; y: number; width: number; height: number },
@@ -37,6 +41,27 @@ function isInsideBounds(
     node.x + node.width <= bounds.x + bounds.width &&
     node.y + node.height <= bounds.y + bounds.height
   )
+}
+
+function fitGroupToChildren(
+  children: Array<{ position: { x: number; y: number }; width?: number; height?: number; type?: string }>,
+): { width: number; height: number } | null {
+  if (children.length === 0) return null
+
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  for (const child of children) {
+    const width = child.width ?? (child.type === 'group' ? GROUP_WIDTH : 220)
+    const height = child.height ?? (child.type === 'group' ? GROUP_HEIGHT : 110)
+    maxX = Math.max(maxX, child.position.x + width)
+    maxY = Math.max(maxY, child.position.y + height)
+  }
+
+  return {
+    width: Math.max(GROUP_MIN_WIDTH, maxX + GROUP_CHILD_PADDING),
+    height: Math.max(GROUP_MIN_HEIGHT, maxY + GROUP_HEADER_PADDING),
+  }
 }
 
 function absolutePositionOf(node: SystemNode, byId: Map<string, SystemNode>): { x: number; y: number } {
@@ -433,7 +458,52 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
       return node
     })
 
-    set({ nodes: resolved, isDirty: true, dropTargetGroupId: null })
+    const affectedGroupIds = new Set<string>()
+    for (const id of finishedDragIds) {
+      const before = byId.get(id)
+      if (before?.parentId) affectedGroupIds.add(before.parentId)
+      const after = resolved.find((n) => n.id === id)
+      if (after?.parentId) affectedGroupIds.add(after.parentId)
+    }
+
+    const resolvedById = new Map(resolved.map((n) => [n.id, n]))
+
+    const resizedGroups = new Map<string, { width: number; height: number }>()
+    for (const groupId of affectedGroupIds) {
+      const group = resolvedById.get(groupId)
+      if (!group) continue
+      const groupAbs = absolutePositionOf(group, resolvedById)
+      const groupWidth = group.width ?? GROUP_WIDTH
+      const groupHeight = group.height ?? GROUP_HEIGHT
+
+      const childBoxes = resolved
+        .filter((n) => n.id !== groupId)
+        .map((n) => {
+          const abs = absolutePositionOf(n, resolvedById)
+          const width = n.width ?? (n.type === 'group' ? GROUP_WIDTH : 220)
+          const height = n.height ?? (n.type === 'group' ? GROUP_HEIGHT : 110)
+          return { node: n, abs, width, height }
+        })
+        .filter(
+          ({ node, abs, width, height }) =>
+            node.parentId === groupId ||
+            isInsideBounds({ ...abs, width, height }, { ...groupAbs, width: groupWidth, height: groupHeight }),
+        )
+        .map(({ abs, width, height }) => ({
+          position: { x: abs.x - groupAbs.x, y: abs.y - groupAbs.y },
+          width,
+          height,
+        }))
+
+      const fitted = fitGroupToChildren(childBoxes)
+      if (fitted) resizedGroups.set(groupId, fitted)
+    }
+
+    const finalNodes = resizedGroups.size === 0
+      ? resolved
+      : resolved.map((node) => (resizedGroups.has(node.id) ? { ...node, ...resizedGroups.get(node.id)! } : node))
+
+    set({ nodes: finalNodes, isDirty: true, dropTargetGroupId: null })
   },
 
   onEdgesChange: (changes) => {
