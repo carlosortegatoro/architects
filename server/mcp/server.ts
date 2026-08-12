@@ -67,6 +67,63 @@ function fitGroupToChildren(
   }
 }
 
+function isDescendantOfNode(
+  candidateId: string,
+  ancestorId: string,
+  byId: Map<string, DiagramFile['nodes'][number]>,
+): boolean {
+  let current = byId.get(candidateId)
+  while (current?.parentId) {
+    if (current.parentId === ancestorId) return true
+    current = byId.get(current.parentId)
+  }
+  return false
+}
+
+function attachToParent(
+  content: DiagramFile,
+  newNode: DiagramFile['nodes'][number],
+  parentId: string | undefined,
+): void {
+  if (parentId === undefined) return
+  const parent = content.nodes.find((n) => n.id === parentId)
+  if (!parent) throw new Error(`Unknown parentId: ${parentId}`)
+  if (parent.type !== 'group') throw new Error(`parentId ${parentId} is not a group node`)
+  if (newNode.type === 'group' && isDescendantOfNode(parentId, newNode.id, new Map(content.nodes.map((n) => [n.id, n])))) {
+    throw new Error(`parentId ${parentId} is a descendant of ${newNode.id} — this would create a cycle`)
+  }
+
+  const byId = new Map(content.nodes.map((n) => [n.id, n]))
+  const parentAbs = absolutePositionOfNode(parent, byId)
+  const parentWidth = parent.width ?? GROUP_WIDTH
+  const parentHeight = parent.height ?? GROUP_HEIGHT
+
+  const children = content.nodes
+    .filter((n) => n.id !== parent.id)
+    .map((n) => {
+      const abs = absolutePositionOfNode(n, byId)
+      const width = n.width ?? (n.type === 'group' ? GROUP_WIDTH : DEFAULT_NODE_WIDTH)
+      const height = n.height ?? (n.type === 'group' ? GROUP_HEIGHT : DEFAULT_NODE_HEIGHT)
+      return { node: n, abs, width, height }
+    })
+    .filter(
+      ({ node, abs, width, height }) =>
+        node.parentId === parent.id ||
+        isInsideBounds({ ...abs, width, height }, { ...parentAbs, width: parentWidth, height: parentHeight }),
+    )
+    .map(({ abs, width, height }) => ({
+      position: { x: abs.x - parentAbs.x, y: abs.y - parentAbs.y },
+      width,
+      height,
+    }))
+
+  const fitted = fitGroupToChildren(children)
+  if (fitted) {
+    parent.width = fitted.width
+    parent.height = fitted.height
+  }
+}
+
 export function buildMcpServer(user: { userId: string; email: string }) {
   const sessionToken = signToken({ sub: user.userId, email: user.email }, '5m')
   const diagramsApi = createDiagramsApi(sessionToken)
@@ -115,6 +172,7 @@ export function buildMcpServer(user: { userId: string; email: string }) {
             '- Group (create_group): a *container* representing a larger system that is actually composed of several smaller systems worth showing individually. Use a group instead of one big system box whenever the sub-systems inside it have their own identity, their own connections to things outside the group, or their own use cases. Create the group first, then create child systems with parentId set to the group id.',
             '  Example: "an e-commerce platform with a catalog service, a checkout service, and an order database" -> create_group("E-commerce platform"), then three create_system calls with parentId set to that group, NOT one system box labeled "E-commerce platform".',
             '  Counter-example: "a single Postgres database used by one service" -> just one system box. Do not create a group for something with no internally-distinguishable parts.',
+            '  Groups can nest: pass parentId (another group id) to create_group itself to model a group-within-a-group. Example: "a platform with a data layer that has its own cache and primary database" -> create_group("Platform"), create_group("Data layer", parentId: platformId), then create_system("Cache", parentId: dataLayerId) and create_system("Primary DB", parentId: dataLayerId).',
             '',
             '- Use case (set_use_case): a named *kind* of interaction (e.g. "Checkout", "Nightly sync", "Read replica traffic") with its own color/speed/shape, reused across every connection that represents that same kind of interaction. Call set_use_case once per distinct kind of interaction in the architecture, then reference its id from every relevant create_connection call. Do not create a new use case per connection if the same kind of interaction already exists — reuse it by name.',
             '',
@@ -184,18 +242,13 @@ export function buildMcpServer(user: { userId: string; email: string }) {
         position: z.object({ x: z.number(), y: z.number() }).optional(),
         displayMode: z.enum(['full', 'logoOnly', 'textOnly']).optional(),
         parentId: z.string().optional(),
+        icon: z.string().trim().min(1).optional(),
       },
     },
-    async ({ diagramId, label, color, position, displayMode, parentId }) => {
+    async ({ diagramId, label, color, position, displayMode, parentId, icon }) => {
       const nodeId = nextId('node')
       await mutateDiagram(diagramId, (content) => {
-        let parent: DiagramFile['nodes'][number] | undefined
-        if (parentId !== undefined) {
-          parent = content.nodes.find((n) => n.id === parentId)
-          if (!parent) throw new Error(`Unknown parentId: ${parentId}`)
-          if (parent.type !== 'group') throw new Error(`parentId ${parentId} is not a group node`)
-        }
-        content.nodes.push({
+        const node: DiagramFile['nodes'][number] = {
           id: nodeId,
           type: 'systemBox',
           position: position ?? { x: 0, y: 0 },
@@ -206,39 +259,11 @@ export function buildMcpServer(user: { userId: string; email: string }) {
             label,
             color: color ?? DEFAULT_NODE_COLOR,
             ...(displayMode && displayMode !== 'full' ? { displayMode } : {}),
+            ...(icon ? { icon } : {}),
           },
-        })
-        if (parent) {
-          const byId = new Map(content.nodes.map((n) => [n.id, n]))
-          const parentAbs = absolutePositionOfNode(parent, byId)
-          const parentWidth = parent.width ?? GROUP_WIDTH
-          const parentHeight = parent.height ?? GROUP_HEIGHT
-
-          const children = content.nodes
-            .filter((n) => n.id !== parent!.id)
-            .map((n) => {
-              const abs = absolutePositionOfNode(n, byId)
-              const width = n.width ?? (n.type === 'group' ? GROUP_WIDTH : DEFAULT_NODE_WIDTH)
-              const height = n.height ?? (n.type === 'group' ? GROUP_HEIGHT : DEFAULT_NODE_HEIGHT)
-              return { node: n, abs, width, height }
-            })
-            .filter(
-              ({ node, abs, width, height }) =>
-                node.parentId === parent!.id ||
-                isInsideBounds({ ...abs, width, height }, { ...parentAbs, width: parentWidth, height: parentHeight }),
-            )
-            .map(({ abs, width, height }) => ({
-              position: { x: abs.x - parentAbs.x, y: abs.y - parentAbs.y },
-              width,
-              height,
-            }))
-
-          const fitted = fitGroupToChildren(children)
-          if (fitted) {
-            parent.width = fitted.width
-            parent.height = fitted.height
-          }
         }
+        content.nodes.push(node)
+        attachToParent(content, node, parentId)
       })
       return { content: [{ type: 'text', text: JSON.stringify({ nodeId }, null, 2) }] }
     },
@@ -250,28 +275,35 @@ export function buildMcpServer(user: { userId: string; email: string }) {
       title: 'Create group box',
       description:
         'Add a new group container node to a diagram. A group represents a larger system that is actually composed of several smaller systems worth showing individually — create the group first, then create its child systems with create_system passing this group\'s id as parentId. ' +
-        'Do not use a group for something with no internally-distinguishable parts (that\'s just a plain system). Returns the new node id.',
+        'Do not use a group for something with no internally-distinguishable parts (that\'s just a plain system). ' +
+        'Pass parentId (another group node id) to nest this group inside an existing group — groups can be nested arbitrarily deep, e.g. a "Platform" group containing a "Data layer" group which itself contains a "Cache" group. Returns the new node id.',
       inputSchema: {
         diagramId: z.string().min(1),
         label: z.string().trim().min(1),
         color: z.string().optional(),
         position: z.object({ x: z.number(), y: z.number() }).optional(),
+        parentId: z.string().optional(),
+        icon: z.string().trim().min(1).optional(),
       },
     },
-    async ({ diagramId, label, color, position }) => {
+    async ({ diagramId, label, color, position, parentId, icon }) => {
       const nodeId = nextId('node')
       await mutateDiagram(diagramId, (content) => {
-        content.nodes.push({
+        const node: DiagramFile['nodes'][number] = {
           id: nodeId,
           type: 'group',
           position: position ?? { x: 0, y: 0 },
           width: GROUP_WIDTH,
           height: GROUP_HEIGHT,
+          ...(parentId !== undefined ? { parentId } : {}),
           data: {
             label,
             color: color ?? DEFAULT_GROUP_COLOR,
+            ...(icon ? { icon } : {}),
           },
-        })
+        }
+        content.nodes.push(node)
+        attachToParent(content, node, parentId)
       })
       return { content: [{ type: 'text', text: JSON.stringify({ nodeId }, null, 2) }] }
     },
@@ -344,6 +376,97 @@ export function buildMcpServer(user: { userId: string; email: string }) {
         useCaseId = useCase.id
       })
       return { content: [{ type: 'text', text: JSON.stringify({ useCaseId }, null, 2) }] }
+    },
+  )
+
+  server.registerTool(
+    'set_icon',
+    {
+      title: 'Set node icon',
+      description:
+        'Set or change the logo/icon of an existing system or group node, given an external image URL. ' +
+        'Pass icon as an empty string to remove the current icon.',
+      inputSchema: { diagramId: z.string().min(1), nodeId: z.string().min(1), icon: z.string() },
+    },
+    async ({ diagramId, nodeId, icon }) => {
+      await mutateDiagram(diagramId, (content) => {
+        const node = content.nodes.find((n) => n.id === nodeId)
+        if (!node) throw new Error(`Unknown nodeId: ${nodeId}`)
+        if (icon === '') delete (node.data as { icon?: string }).icon
+        else (node.data as { icon?: string }).icon = icon
+      })
+      return { content: [{ type: 'text', text: JSON.stringify({ nodeId, icon: icon || null }, null, 2) }] }
+    },
+  )
+
+  server.registerTool(
+    'delete_node',
+    {
+      title: 'Delete node',
+      description:
+        'Delete a system or group node from a diagram. Connections to/from it are deleted too. ' +
+        "If it's a group with children, the children are NOT deleted: they are promoted to the group's " +
+        "parent level (or to the diagram root), keeping their absolute canvas position — matches the editor UI.",
+      inputSchema: { diagramId: z.string().min(1), nodeId: z.string().min(1) },
+    },
+    async ({ diagramId, nodeId }) => {
+      await mutateDiagram(diagramId, (content) => {
+        const byId = new Map(content.nodes.map((n) => [n.id, n]))
+        const removed = byId.get(nodeId)
+        if (!removed) throw new Error(`Unknown nodeId: ${nodeId}`)
+        const removedAbs = absolutePositionOfNode(removed, byId)
+        const isGroup = removed.type === 'group'
+
+        content.nodes = content.nodes
+          .filter((n) => n.id !== nodeId)
+          .map((n) => {
+            if (!isGroup || n.parentId !== nodeId) return n
+            const { parentId, ...rest } = n
+            return { ...rest, position: { x: removedAbs.x + n.position.x, y: removedAbs.y + n.position.y } }
+          })
+        content.edges = content.edges.filter((e) => e.source !== nodeId && e.target !== nodeId)
+      })
+      return { content: [{ type: 'text', text: JSON.stringify({ deleted: nodeId }, null, 2) }] }
+    },
+  )
+
+  server.registerTool(
+    'delete_connection',
+    {
+      title: 'Delete connection',
+      description: 'Delete an edge (connection) from a diagram by its id.',
+      inputSchema: { diagramId: z.string().min(1), edgeId: z.string().min(1) },
+    },
+    async ({ diagramId, edgeId }) => {
+      await mutateDiagram(diagramId, (content) => {
+        if (!content.edges.some((e) => e.id === edgeId)) throw new Error(`Unknown edgeId: ${edgeId}`)
+        content.edges = content.edges.filter((e) => e.id !== edgeId)
+      })
+      return { content: [{ type: 'text', text: JSON.stringify({ deleted: edgeId }, null, 2) }] }
+    },
+  )
+
+  server.registerTool(
+    'delete_use_case',
+    {
+      title: 'Delete use case',
+      description: 'Delete a use case by id. Connections/scenarios referencing it keep existing but lose the reference.',
+      inputSchema: { diagramId: z.string().min(1), useCaseId: z.string().min(1) },
+    },
+    async ({ diagramId, useCaseId }) => {
+      await mutateDiagram(diagramId, (content) => {
+        if (!content.useCases.some((u) => u.id === useCaseId)) throw new Error(`Unknown useCaseId: ${useCaseId}`)
+        content.useCases = content.useCases.filter((u) => u.id !== useCaseId)
+        content.edges = content.edges.map((e) => ({
+          ...e,
+          data: { ...e.data, useCaseIds: e.data.useCaseIds.filter((id) => id !== useCaseId) },
+        }))
+        content.scenarios = (content.scenarios ?? []).map((s) => ({
+          ...s,
+          useCaseIds: s.useCaseIds.filter((id) => id !== useCaseId),
+        }))
+      })
+      return { content: [{ type: 'text', text: JSON.stringify({ deleted: useCaseId }, null, 2) }] }
     },
   )
 

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
-import { useDiagramStore } from '../store/diagramStore'
-import { AsteriskIcon, ShapeFullIcon, ShapeLogoOnlyIcon, ShapeTextOnlyIcon } from './Icon'
+import type { SystemNodeData } from '../types'
+import { useDiagramStore, type SystemNode } from '../store/diagramStore'
+import { AsteriskIcon, NoteIcon, ShapeFullIcon, ShapeLogoOnlyIcon, ShapeTextOnlyIcon } from './Icon'
 
 const SHAPE_BUTTONS: { mode: 'full' | 'logoOnly' | 'textOnly'; icon: JSX.Element; title: string }[] = [
   { mode: 'full', icon: <ShapeFullIcon />, title: 'New system (full)' },
@@ -10,9 +11,13 @@ const SHAPE_BUTTONS: { mode: 'full' | 'logoOnly' | 'textOnly'; icon: JSX.Element
 
 export function Sidebar() {
   const allNodes = useDiagramStore((s) => s.nodes)
-  const nodes = useMemo(() => allNodes.filter((n) => n.type !== 'group'), [allNodes])
+  const nodes = useMemo(
+    () => allNodes.filter((n): n is SystemNode & { data: SystemNodeData } => n.type === 'systemBox'),
+    [allNodes],
+  )
   const addNode = useDiagramStore((s) => s.addNode)
   const addGroup = useDiagramStore((s) => s.addGroup)
+  const addAnnotation = useDiagramStore((s) => s.addAnnotation)
   const updateNodeData = useDiagramStore((s) => s.updateNodeData)
   const removeNode = useDiagramStore((s) => s.removeNode)
   const setFocusedNode = useDiagramStore((s) => s.setFocusedNode)
@@ -30,6 +35,15 @@ export function Sidebar() {
             onClick={() => addGroup({ x: 150 + Math.random() * 100, y: 100 + Math.random() * 100 })}
           >
             <AsteriskIcon />
+          </button>
+          <button
+            type="button"
+            className="btn btn--icon"
+            title="New annotation"
+            data-tooltip="New Annotation"
+            onClick={() => addAnnotation({ x: 150 + Math.random() * 100, y: 100 + Math.random() * 100 })}
+          >
+            <NoteIcon />
           </button>
         </div>
       </div>

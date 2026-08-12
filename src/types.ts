@@ -32,6 +32,12 @@ export type GroupNodeData = {
   handleCounts?: HandleCounts
 }
 
+export type AnnotationNodeData = {
+  title: string
+  body?: string
+  color?: string
+}
+
 export type ConnectionEdgeData = {
   useCaseIds: string[]
   label?: string
@@ -47,9 +53,9 @@ export type DiagramFile = {
   version: 1
   nodes: Array<{
     id: string
-    type: 'systemBox' | 'group'
+    type: 'systemBox' | 'group' | 'annotation'
     position: { x: number; y: number }
-    data: SystemNodeData | GroupNodeData
+    data: SystemNodeData | GroupNodeData | AnnotationNodeData
     width?: number
     height?: number
     parentId?: string

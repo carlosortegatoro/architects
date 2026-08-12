@@ -12,11 +12,12 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useDiagramStore, type SystemNode } from '../store/diagramStore'
+import { AnnotationNode } from './AnnotationNode'
 import { GroupNode } from './GroupNode'
 import { SystemBoxNode } from './SystemBoxNode'
 import { UseCaseEdge } from './UseCaseEdge'
 
-const nodeTypes = { systemBox: SystemBoxNode, group: GroupNode }
+const nodeTypes = { systemBox: SystemBoxNode, group: GroupNode, annotation: AnnotationNode }
 const edgeTypes = { useCase: UseCaseEdge }
 
 type CanvasProps = {
@@ -43,6 +44,7 @@ export function Canvas({ interactive = true }: CanvasProps) {
   const onReconnect = useDiagramStore((s) => s.onReconnect)
   const setSelectedEdge = useDiagramStore((s) => s.setSelectedEdge)
   const presenting = useDiagramStore((s) => s.presenting)
+  const particlesPaused = useDiagramStore((s) => s.particlesPaused)
   const hiddenUseCaseIds = useDiagramStore((s) => s.hiddenUseCaseIds)
   const findGroupAt = useDiagramStore((s) => s.findGroupAt)
   const setDropTargetGroup = useDiagramStore((s) => s.setDropTargetGroup)
@@ -133,7 +135,6 @@ export function Canvas({ interactive = true }: CanvasProps) {
 
   const onNodeDrag: OnNodeDrag<SystemNode> = useCallback(
     (_, node) => {
-      if (node.type === 'group') return
       setDropTargetGroup(findGroupAt(node.id, node.position))
     },
     [findGroupAt, setDropTargetGroup],
@@ -144,6 +145,22 @@ export function Canvas({ interactive = true }: CanvasProps) {
   }, [setDropTargetGroup])
 
   const defaultEdgeOptions = useMemo(() => ({ type: 'useCase' }), [])
+
+  useEffect(() => {
+    const svgs = wrapperRef.current?.querySelectorAll('svg') ?? []
+    let warned = false
+    svgs.forEach((svg) => {
+      if (typeof svg.pauseAnimations !== 'function' || typeof svg.unpauseAnimations !== 'function') {
+        if (particlesPaused && !warned) {
+          console.warn('pauseAnimations() not supported in this browser — particle pause has no effect.')
+          warned = true
+        }
+        return
+      }
+      if (particlesPaused) svg.pauseAnimations()
+      else svg.unpauseAnimations()
+    })
+  }, [particlesPaused])
 
   return (
     <div className="canvas" ref={wrapperRef}>

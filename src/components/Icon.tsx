@@ -24,6 +24,21 @@ export function AsteriskIcon() {
   )
 }
 
+export function NoteIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M2.5 1.5H8.5L11.5 4.5V12.5H2.5V1.5Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path d="M8.5 1.5V4.5H11.5" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M4.5 7H9.5M4.5 9.5H9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function FolderIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -96,6 +111,14 @@ export function PlayIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
       <path d="M3.5 1.75V12.25L11.5 7L3.5 1.75Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function PauseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M4 2V12M10 2V12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   )
 }

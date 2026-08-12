@@ -60,7 +60,7 @@ Los grupos se creaban con tamaño fijo (`GROUP_WIDTH=400`/`GROUP_HEIGHT=300`) y 
 
 El usuario sigue pudiendo redimensionar un grupo manualmente en cualquier momento vía `NodeResizer`; el fit-to-content solo se dispara en los eventos descritos, no de forma continua.
 
-## 🔍 Exportar/importar desde Lucidchart — investigado, solo viable en un sentido
+## 🔍 Exportar/importar desde Lucidchart — descartado
 
 Investigación profunda completada (2026-08-05) contra la documentación oficial de Lucid (`developer.lucid.co`, `lucid.readme.io`, foros de soporte). Conclusión: **no es viable bidireccional**, y la asimetría está confirmada al nivel del propio esquema de la API, no es una limitación de esfuerzo de implementación.
 
@@ -81,6 +81,28 @@ Investigación profunda completada (2026-08-05) contra la documentación oficial
 - **`handleCounts`**: sin equivalente directo (Lucidchart usa "smart lines" sin conteo fijo de handles por lado).
 
 **Recomendación si se retoma**: prototipar solo la dirección exportación (Standard Import + API key), y solo tras confirmar que la cuenta de Lucidchart relevante ya tiene plan Team/Enterprise. Tratar como una función de "exportar una copia aproximada a Lucidchart", nunca como sincronización o importación real.
+
+## ✅ Headline + texto explicativo — implementado
+
+Nodo `annotation` independiente (`AnnotationNode.tsx`), sin handles ni conexiones — no se dio uso al campo `SystemNodeData.description` (sigue sin usar). Título editable por doble-click y cuerpo aparte (textarea, Enter inserta salto de línea en vez de cerrar), swatches de color, resizable vía `NodeResizer`. Participa en `fitGroupToChildren` igual que cualquier otro nodo, sin caso especial. No expuesto vía MCP.
+
+## ✅ Acción de borrar por MCP — implementado
+
+`delete_node`, `delete_connection`, `delete_use_case` en `server/mcp/server.ts` (`delete_diagram` queda fuera de alcance). `delete_node` sobre un `group` con hijos los promueve al nivel del padre del grupo (o a la raíz), conservando su posición absoluta — igual que ya hacía `removeNode` en la UI. `delete_use_case` limpia referencias en `edges`/`scenarios` sin borrar los edges/scenarios en sí.
+
+## ✅ Acción de insertar imagen por MCP — implementado
+
+Se expuso solo el campo `icon` (URL externa o `preset:<slug>`) en el `inputSchema` de `create_system`/`create_group`, más una tool nueva `set_icon` para cambiar o borrar (`icon: ''`) el icono de un nodo ya existente. No se construyó un nodo de imagen independiente — fuera de alcance decidido.
+
+## ✅ Grupos de grupos (anidamiento de grupos) — implementado
+
+Quitado el guard que excluía a los nodos `group` de la detección de contenedor al soltar un drag. Nuevo helper `isDescendantOf`/`isDescendantOfNode` (frontend y MCP respectivamente) previene ciclos — un grupo no puede pasar a ser hijo de su propio descendiente. `create_group` en el MCP ahora acepta `parentId`, vía una función compartida `attachToParent` extraída de la lógica que ya usaba `create_system`.
+
+De paso se corrigieron dos bugs pre-existentes que solo se manifestaban con 2+ niveles de anidamiento (invisibles con un solo nivel, porque ahí posición relativa y absoluta coinciden): `removeNode` promocionaba a los hijos de un grupo eliminado usando su posición relativa en vez de la absoluta; y `loadDiagram` ordenaba los nodos "grupos primero, resto después" sin tener en cuenta la profundidad relativa entre grupos anidados, lo cual podía violar el requisito de `@xyflow/system` de que un padre aparezca antes que su hijo en el array (ahora ordenado por `depthOf`).
+
+## ✅ Pausar la continuidad del flujo de datos en presentación — implementado
+
+Toggle global (`particlesPaused` en el store, no persistido, mismo patrón que `spotlightEnabled`) en `PresentationControls`. `Canvas.tsx` itera con `querySelectorAll('svg')` sobre **todos** los `<svg>` dentro del canvas — React Flow renderiza un `<svg>` independiente por edge (no uno único compartido, como se asumía inicialmente), así que iterar sobre uno solo dejaba sin pausar la mayoría de las partículas. Se confirmó soporte de `pauseAnimations()`/`unpauseAnimations()` en el entorno de Carlos antes de comprometerse al enfoque.
 
 ## Librería de sistemas reutilizables
 

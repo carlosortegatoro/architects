@@ -10,7 +10,15 @@ import {
   type EdgeChange,
   type Connection,
 } from '@xyflow/react'
-import type { ConnectionEdgeData, DiagramFile, GroupNodeData, Scenario, SystemNodeData, UseCase } from '../types'
+import type {
+  AnnotationNodeData,
+  ConnectionEdgeData,
+  DiagramFile,
+  GroupNodeData,
+  Scenario,
+  SystemNodeData,
+  UseCase,
+} from '../types'
 import { diagramsApi } from '../api/client'
 
 let idCounter = 0
@@ -19,7 +27,7 @@ function nextId(prefix: string) {
   return `${prefix}-${idCounter}-${Math.floor(Math.random() * 100000)}`
 }
 
-export type SystemNode = Node<SystemNodeData | GroupNodeData>
+export type SystemNode = Node<SystemNodeData | GroupNodeData | AnnotationNodeData>
 export type ConnectionEdge = Edge<ConnectionEdgeData>
 export type AlignMode = 'left' | 'hcenter' | 'right' | 'top' | 'vmiddle' | 'bottom'
 export type DistributeMode = 'horizontal' | 'vertical' | 'grid'
@@ -30,6 +38,8 @@ const GROUP_MIN_WIDTH = 240
 const GROUP_MIN_HEIGHT = 160
 const GROUP_CHILD_PADDING = 40
 const GROUP_HEADER_PADDING = 60
+const ANNOTATION_WIDTH = 260
+const ANNOTATION_HEIGHT = 140
 
 function isInsideBounds(
   node: { x: number; y: number; width: number; height: number },
@@ -72,6 +82,30 @@ function absolutePositionOf(node: SystemNode, byId: Map<string, SystemNode>): { 
   return { x: parentAbs.x + node.position.x, y: parentAbs.y + node.position.y }
 }
 
+function isDescendantOf(candidateId: string, ancestorId: string, byId: Map<string, SystemNode>): boolean {
+  let current = byId.get(candidateId)
+  while (current?.parentId) {
+    if (current.parentId === ancestorId) return true
+    current = byId.get(current.parentId)
+  }
+  return false
+}
+
+function depthOf(
+  node: DiagramFile['nodes'][number],
+  byId: Map<string, DiagramFile['nodes'][number]>,
+): number {
+  let depth = 0
+  let current = node
+  while (current.parentId) {
+    const parent = byId.get(current.parentId)
+    if (!parent) break
+    depth += 1
+    current = parent
+  }
+  return depth
+}
+
 type Theme = 'dark' | 'light'
 
 type Snapshot = {
@@ -98,6 +132,7 @@ type DiagramState = {
   hiddenUseCaseIds: string[]
   highlightedNodeIds: string[]
   spotlightEnabled: boolean
+  particlesPaused: boolean
   theme: Theme
   focusedNodeId: string | null
   dropTargetGroupId: string | null
@@ -138,6 +173,7 @@ type DiagramState = {
   toggleHighlightedNode: (id: string) => void
   clearHighlight: () => void
   toggleSpotlight: () => void
+  toggleParticlesPause: () => void
 
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
@@ -146,7 +182,8 @@ type DiagramState = {
 
   addNode: (position: { x: number; y: number }, displayMode?: 'full' | 'logoOnly' | 'textOnly') => void
   addGroup: (position: { x: number; y: number }) => void
-  updateNodeData: (id: string, data: Partial<SystemNodeData & GroupNodeData>) => void
+  addAnnotation: (position: { x: number; y: number }) => void
+  updateNodeData: (id: string, data: Partial<SystemNodeData & GroupNodeData & AnnotationNodeData>) => void
   removeNode: (id: string) => void
   alignNodes: (ids: string[], mode: AlignMode) => void
   distributeNodes: (ids: string[], mode: DistributeMode) => void
@@ -218,6 +255,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
   hiddenUseCaseIds: [],
   highlightedNodeIds: [],
   spotlightEnabled: false,
+  particlesPaused: false,
   theme: loadTheme(),
   focusedNodeId: null,
   dropTargetGroupId: null,
@@ -280,8 +318,8 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
   },
 
   saveDiagram: async () => {
-    const { diagramId, toDiagramFile } = get()
-    if (!diagramId) return
+    const { diagramId, isDirty, toDiagramFile } = get()
+    if (!diagramId || !isDirty) return
     set({ isSaving: true })
     try {
       const diagram = await diagramsApi.update(diagramId, { content: toDiagramFile() })
@@ -348,6 +386,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
       (g) =>
         g.type === 'group' &&
         g.id !== nodeId &&
+        !isDescendantOf(g.id, nodeId, byId) &&
         isInsideBounds(
           { ...abs, width, height },
           { ...absolutePositionOf(g, byId), width: g.width ?? GROUP_WIDTH, height: g.height ?? GROUP_HEIGHT },
@@ -389,6 +428,8 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
 
   toggleSpotlight: () => set({ spotlightEnabled: !get().spotlightEnabled }),
 
+  toggleParticlesPause: () => set({ particlesPaused: !get().particlesPaused }),
+
   toggleTheme: () => {
     const next = get().theme === 'dark' ? 'light' : 'dark'
     localStorage.setItem(THEME_STORAGE_KEY, next)
@@ -424,7 +465,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
     const groups = nextNodes.filter((n) => n.type === 'group')
 
     const resolved = nextNodes.map((node) => {
-      if (node.type === 'group' || !finishedDragIds.has(node.id)) return node
+      if (!finishedDragIds.has(node.id)) return node
 
       const abs = absolutePositionOf(node, byId)
       const width = node.width ?? 220
@@ -433,6 +474,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
       const containingGroup = groups.find(
         (g) =>
           g.id !== node.id &&
+          !isDescendantOf(g.id, node.id, byId) &&
           isInsideBounds(
             { ...abs, width, height },
             { ...absolutePositionOf(g, byId), width: g.width ?? GROUP_WIDTH, height: g.height ?? GROUP_HEIGHT },
@@ -554,6 +596,19 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
     set({ nodes: [...get().nodes, node], isDirty: true })
   },
 
+  addAnnotation: (position) => {
+    commit()
+    const node: SystemNode = {
+      id: nextId('annotation'),
+      type: 'annotation',
+      position,
+      width: ANNOTATION_WIDTH,
+      height: ANNOTATION_HEIGHT,
+      data: { title: 'New note' },
+    }
+    set({ nodes: [...get().nodes, node], isDirty: true })
+  },
+
   updateNodeData: (id, data) => {
     const fieldKey = Object.keys(data).sort().join(',')
     commit(`node:${id}:${fieldKey}`)
@@ -566,17 +621,18 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
   removeNode: (id) => {
     commit()
     const nodes = get().nodes
-    const removed = nodes.find((n) => n.id === id)
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    const removed = byId.get(id)
     const isGroup = removed?.type === 'group'
+    const removedAbs = removed ? absolutePositionOf(removed, byId) : { x: 0, y: 0 }
 
     const survivors = isGroup
       ? nodes
           .filter((n) => n.id !== id)
           .map((n) => {
             if (n.parentId !== id) return n
-            const parentAbs = removed?.position ?? { x: 0, y: 0 }
             const { parentId, extent, ...rest } = n
-            return { ...rest, position: { x: parentAbs.x + n.position.x, y: parentAbs.y + n.position.y } }
+            return { ...rest, position: { x: removedAbs.x + n.position.x, y: removedAbs.y + n.position.y } }
           })
       : nodes.filter((n) => n.id !== id)
 
@@ -811,11 +867,8 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
   },
 
   loadDiagram: (file) => {
-    const orderedNodes = [...file.nodes].sort((a, b) => {
-      if (a.type === 'group' && b.type !== 'group') return -1
-      if (a.type !== 'group' && b.type === 'group') return 1
-      return 0
-    })
+    const byId = new Map(file.nodes.map((n) => [n.id, n]))
+    const orderedNodes = [...file.nodes].sort((a, b) => depthOf(a, byId) - depthOf(b, byId))
 
     set({
       nodes: orderedNodes.map((n) => ({
@@ -847,7 +900,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
       scenarios,
       nodes: nodes.map((n) => ({
         id: n.id,
-        type: n.type === 'group' ? 'group' : 'systemBox',
+        type: n.type === 'group' ? 'group' : n.type === 'annotation' ? 'annotation' : 'systemBox',
         position: n.position,
         data: n.data,
         width: n.width,

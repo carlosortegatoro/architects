@@ -1,5 +1,5 @@
 import { useDiagramStore } from '../store/diagramStore'
-import { ShareIcon, SpotlightIcon } from './Icon'
+import { PauseIcon, PlayIcon, ShareIcon, SpotlightIcon } from './Icon'
 
 type PresentationControlsProps = {
   onExpand: () => void
@@ -9,6 +9,8 @@ type PresentationControlsProps = {
 export function PresentationControls({ onExpand, onExit }: PresentationControlsProps) {
   const spotlightEnabled = useDiagramStore((s) => s.spotlightEnabled)
   const toggleSpotlight = useDiagramStore((s) => s.toggleSpotlight)
+  const particlesPaused = useDiagramStore((s) => s.particlesPaused)
+  const toggleParticlesPause = useDiagramStore((s) => s.toggleParticlesPause)
 
   return (
     <div className="presentation-controls">
@@ -18,6 +20,13 @@ export function PresentationControls({ onExpand, onExit }: PresentationControlsP
         title="Toggle spotlight"
       >
         <SpotlightIcon />
+      </button>
+      <button
+        className={`presentation-controls__btn${particlesPaused ? ' presentation-controls__btn--active' : ''}`}
+        onClick={toggleParticlesPause}
+        title={particlesPaused ? 'Resume particles' : 'Pause particles'}
+      >
+        {particlesPaused ? <PlayIcon /> : <PauseIcon />}
       </button>
       <button className="presentation-controls__btn" onClick={onExpand} title="Fullscreen">
         <ShareIcon />

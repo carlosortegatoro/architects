@@ -746,6 +746,125 @@ body,
   color: #ef4444;
 }
 
+.annotation-box {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 160px;
+  min-height: 80px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: #1e293b;
+  border: 2px solid;
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.annotation-box__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 4px;
+  flex-shrink: 0;
+}
+
+.annotation-box__title {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.annotation-box__input {
+  flex: 1;
+  background: #0f172a;
+  border: 1px solid #374151;
+  color: #e2e8f0;
+  border-radius: 4px;
+  font-family: 'Poppins', 'Inter', 'Segoe UI', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 2px 6px;
+}
+
+.annotation-box__delete {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.annotation-box__delete:hover {
+  color: #ef4444;
+}
+
+.annotation-box__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 10px 8px;
+  overflow: auto;
+  cursor: text;
+}
+
+.annotation-box__body-text {
+  display: block;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.annotation-box__body-placeholder {
+  display: block;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.annotation-box__textarea {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  background: #0f172a;
+  border: 1px solid #374151;
+  color: #e2e8f0;
+  border-radius: 4px;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 4px 6px;
+  box-sizing: border-box;
+}
+
+.annotation-box__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 10px 8px;
+  flex-shrink: 0;
+}
+
+.annotation-box__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 0;
+}
+
 .handle-stepper {
   position: absolute;
   display: flex;
@@ -992,6 +1111,19 @@ body,
 
 .app--light .group-box__label {
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.35);
+}
+
+.app--light .annotation-box {
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.app--light .annotation-box__title {
+  color: #0f172a;
+}
+
+.app--light .annotation-box__body-text {
+  color: #334155;
 }
 
 .app--light .entity-list__input,
