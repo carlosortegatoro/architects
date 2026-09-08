@@ -38,9 +38,11 @@ export type DiagramSummary = {
 export type DiagramContentSummary = {
   systemCount: number
   groupCount: number
+  infoCardCount: number
   connectionCount: number
   useCaseNames: string[]
   topLevelSystemNames: string[]
+  topLevelInfoCardHeaders: string[]
 }
 
 export type DiagramListEntry = DiagramSummary & { summary: DiagramContentSummary }

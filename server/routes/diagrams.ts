@@ -28,9 +28,13 @@ router.get('/', async (req: AuthedRequest, res) => {
       const content = row.content as DiagramFile
       const systemCount = content.nodes.filter((n) => n.type === 'systemBox').length
       const groupCount = content.nodes.filter((n) => n.type === 'group').length
+      const infoCardCount = content.nodes.filter((n) => n.type === 'infoCard').length
       const topLevelSystemNames = content.nodes
         .filter((n) => n.type === 'systemBox' && n.parentId === undefined)
         .map((n) => (n.data as { label: string }).label)
+      const topLevelInfoCardHeaders = content.nodes
+        .filter((n) => n.type === 'infoCard' && n.parentId === undefined)
+        .map((n) => (n.data as { header: string }).header)
       const useCaseNames = content.useCases.map((uc) => uc.name)
 
       return {
@@ -41,9 +45,11 @@ router.get('/', async (req: AuthedRequest, res) => {
         summary: {
           systemCount,
           groupCount,
+          infoCardCount,
           connectionCount: content.edges.length,
           useCaseNames,
           topLevelSystemNames,
+          topLevelInfoCardHeaders,
         },
       }
     }),

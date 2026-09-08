@@ -15,6 +15,7 @@ import type {
   ConnectionEdgeData,
   DiagramFile,
   GroupNodeData,
+  InfoCardNodeData,
   Scenario,
   SystemNodeData,
   UseCase,
@@ -27,7 +28,7 @@ function nextId(prefix: string) {
   return `${prefix}-${idCounter}-${Math.floor(Math.random() * 100000)}`
 }
 
-export type SystemNode = Node<SystemNodeData | GroupNodeData | AnnotationNodeData>
+export type SystemNode = Node<SystemNodeData | GroupNodeData | AnnotationNodeData | InfoCardNodeData>
 export type ConnectionEdge = Edge<ConnectionEdgeData>
 export type AlignMode = 'left' | 'hcenter' | 'right' | 'top' | 'vmiddle' | 'bottom'
 export type DistributeMode = 'horizontal' | 'vertical' | 'grid'
@@ -40,6 +41,22 @@ const GROUP_CHILD_PADDING = 40
 const GROUP_HEADER_PADDING = 60
 const ANNOTATION_WIDTH = 260
 const ANNOTATION_HEIGHT = 140
+const INFO_CARD_WIDTH = 300
+const INFO_CARD_HEIGHT = 180
+
+function defaultNodeWidth(type?: string): number {
+  if (type === 'group') return GROUP_WIDTH
+  if (type === 'annotation') return ANNOTATION_WIDTH
+  if (type === 'infoCard') return INFO_CARD_WIDTH
+  return 220
+}
+
+function defaultNodeHeight(type?: string): number {
+  if (type === 'group') return GROUP_HEIGHT
+  if (type === 'annotation') return ANNOTATION_HEIGHT
+  if (type === 'infoCard') return INFO_CARD_HEIGHT
+  return 110
+}
 
 function isInsideBounds(
   node: { x: number; y: number; width: number; height: number },
@@ -62,8 +79,8 @@ function fitGroupToChildren(
   let maxY = -Infinity
 
   for (const child of children) {
-    const width = child.width ?? (child.type === 'group' ? GROUP_WIDTH : 220)
-    const height = child.height ?? (child.type === 'group' ? GROUP_HEIGHT : 110)
+    const width = child.width ?? defaultNodeWidth(child.type)
+    const height = child.height ?? defaultNodeHeight(child.type)
     maxX = Math.max(maxX, child.position.x + width)
     maxY = Math.max(maxY, child.position.y + height)
   }
@@ -183,7 +200,8 @@ type DiagramState = {
   addNode: (position: { x: number; y: number }, displayMode?: 'full' | 'logoOnly' | 'textOnly') => void
   addGroup: (position: { x: number; y: number }) => void
   addAnnotation: (position: { x: number; y: number }) => void
-  updateNodeData: (id: string, data: Partial<SystemNodeData & GroupNodeData & AnnotationNodeData>) => void
+  addInfoCard: (position: { x: number; y: number }) => void
+  updateNodeData: (id: string, data: Partial<SystemNodeData & GroupNodeData & AnnotationNodeData & InfoCardNodeData>) => void
   removeNode: (id: string) => void
   alignNodes: (ids: string[], mode: AlignMode) => void
   distributeNodes: (ids: string[], mode: DistributeMode) => void
@@ -379,8 +397,8 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
           y: absolutePositionOf(byId.get(node.parentId)!, byId).y + position.y,
         }
       : position
-    const width = node.width ?? 220
-    const height = node.height ?? 110
+    const width = node.width ?? defaultNodeWidth(node.type)
+    const height = node.height ?? defaultNodeHeight(node.type)
 
     const containingGroup = nodes.find(
       (g) =>
@@ -468,8 +486,8 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
       if (!finishedDragIds.has(node.id)) return node
 
       const abs = absolutePositionOf(node, byId)
-      const width = node.width ?? 220
-      const height = node.height ?? 110
+      const width = node.width ?? defaultNodeWidth(node.type)
+      const height = node.height ?? defaultNodeHeight(node.type)
 
       const containingGroup = groups.find(
         (g) =>
@@ -522,8 +540,8 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
         .filter((n) => n.id !== groupId)
         .map((n) => {
           const abs = absolutePositionOf(n, resolvedById)
-          const width = n.width ?? (n.type === 'group' ? GROUP_WIDTH : 220)
-          const height = n.height ?? (n.type === 'group' ? GROUP_HEIGHT : 110)
+          const width = n.width ?? defaultNodeWidth(n.type)
+          const height = n.height ?? defaultNodeHeight(n.type)
           return { node: n, abs, width, height }
         })
         .filter(
@@ -609,6 +627,23 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
     set({ nodes: [...get().nodes, node], isDirty: true })
   },
 
+  addInfoCard: (position) => {
+    commit()
+    const node: SystemNode = {
+      id: nextId('info-card'),
+      type: 'infoCard',
+      position,
+      width: INFO_CARD_WIDTH,
+      height: INFO_CARD_HEIGHT,
+      data: {
+        header: 'New information card',
+        description: '',
+        color: '#2563eb',
+      },
+    }
+    set({ nodes: [...get().nodes, node], isDirty: true })
+  },
+
   updateNodeData: (id, data) => {
     const fieldKey = Object.keys(data).sort().join(',')
     commit(`node:${id}:${fieldKey}`)
@@ -654,8 +689,8 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
 
     const boundsOf = (n: SystemNode) => {
       const abs = absolutePositionOf(n, byId)
-      const width = n.width ?? (n.type === 'group' ? GROUP_WIDTH : 220)
-      const height = n.height ?? (n.type === 'group' ? GROUP_HEIGHT : 110)
+      const width = n.width ?? defaultNodeWidth(n.type)
+      const height = n.height ?? defaultNodeHeight(n.type)
       return { ...abs, width, height }
     }
 
@@ -699,8 +734,8 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
 
     const boundsOf = (n: SystemNode) => {
       const abs = absolutePositionOf(n, byId)
-      const width = n.width ?? (n.type === 'group' ? GROUP_WIDTH : 220)
-      const height = n.height ?? (n.type === 'group' ? GROUP_HEIGHT : 110)
+      const width = n.width ?? defaultNodeWidth(n.type)
+      const height = n.height ?? defaultNodeHeight(n.type)
       return { ...abs, width, height }
     }
 
@@ -900,7 +935,10 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
       scenarios,
       nodes: nodes.map((n) => ({
         id: n.id,
-        type: n.type === 'group' ? 'group' : n.type === 'annotation' ? 'annotation' : 'systemBox',
+        type:
+          n.type === 'group' || n.type === 'annotation' || n.type === 'infoCard'
+            ? n.type
+            : 'systemBox',
         position: n.position,
         data: n.data,
         width: n.width,

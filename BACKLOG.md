@@ -84,7 +84,7 @@ Investigación profunda completada (2026-08-05) contra la documentación oficial
 
 ## ✅ Headline + texto explicativo — implementado
 
-Nodo `annotation` independiente (`AnnotationNode.tsx`), sin handles ni conexiones — no se dio uso al campo `SystemNodeData.description` (sigue sin usar). Título editable por doble-click y cuerpo aparte (textarea, Enter inserta salto de línea en vez de cerrar), swatches de color, resizable vía `NodeResizer`. Participa en `fitGroupToChildren` igual que cualquier otro nodo, sin caso especial. No expuesto vía MCP.
+Nodo `annotation` independiente (`AnnotationNode.tsx`) — no se dio uso al campo `SystemNodeData.description` (sigue sin usar). Título editable por doble-click y cuerpo aparte (textarea, Enter inserta salto de línea en vez de cerrar), swatches de color y tamaño ajustable vía `NodeResizer`. Participa en `fitGroupToChildren` igual que cualquier otro nodo. Inicialmente era solo informativo; ahora tiene handles configurables en los cuatro lados para poder conectarse con el resto de tipos de nodo. Sigue sin tener una tool MCP de creación propia; desde MCP se usa `create_info_card` para contenido explicativo estructurado.
 
 ## ✅ Acción de borrar por MCP — implementado
 
@@ -104,19 +104,13 @@ De paso se corrigieron dos bugs pre-existentes que solo se manifestaban con 2+ n
 
 Toggle global (`particlesPaused` en el store, no persistido, mismo patrón que `spotlightEnabled`) en `PresentationControls`. `Canvas.tsx` itera con `querySelectorAll('svg')` sobre **todos** los `<svg>` dentro del canvas — React Flow renderiza un `<svg>` independiente por edge (no uno único compartido, como se asumía inicialmente), así que iterar sobre uno solo dejaba sin pausar la mayoría de las partículas. Se confirmó soporte de `pauseAnimations()`/`unpauseAnimations()` en el entorno de Carlos antes de comprometerse al enfoque.
 
-## Caja informativa con logo, header y descripción
+## ✅ Caja informativa con logo, header y descripción — implementado
 
-Nuevo tipo de nodo visualmente más rico que las cajas de sistema actuales y que el nodo `annotation`: una tarjeta con **logo**, **header** y **descripción multilínea**. Serviría para representar productos, capacidades o bloques conceptuales que necesitan algo más de contexto visible dentro del propio diagrama.
+Nuevo tipo de nodo independiente `infoCard`, con datos propios `{ header, description, icon?, color, handleCounts? }`, pensado para productos, capacidades, actores externos o conceptos que necesitan más contexto visible que una caja de sistema.
 
-Propuesta inicial:
-- Nuevo tipo de nodo (p.ej. `infoCard`) y datos propios: `{ header, description, icon?, color }`.
-- Edición inline del header y de la descripción, selección/carga de logo y personalización de color.
-- Tamaño ajustable mediante `NodeResizer`, con una maquetación que mantenga legibles los tres elementos al redimensionar.
-- Persistencia completa en `DiagramFile`, compatibilidad con undo/redo, importación/exportación, grupos anidados y modo presentación.
-- Decidir antes de implementarlo si tendrá handles y podrá participar en conexiones como un sistema, o si será únicamente informativo como `annotation`.
-- Decidir también si se expondrá desde MCP mediante una tool propia o ampliando alguna de las tools de creación existentes.
+Incluye edición inline del header y de la descripción multilínea, logo mediante preset/subida/URL, colores, redimensionado y handles configurables en los cuatro lados. Se puede conectar en ambos sentidos con sistemas, grupos, anotaciones y otras cajas informativas. Participa también en undo/redo, alineación/distribución, importación/exportación JSON, grupos anidados, autoajuste de grupos, persistencia y modo presentación.
 
-Aunque `SystemNodeData.description` ya existe, actualmente no se usa. Conviene decidir durante la implementación si este nuevo nodo aprovecha y formaliza ese campo o si debe permanecer como un tipo totalmente independiente para no sobrecargar semánticamente las cajas de sistema.
+El MCP la expone mediante `create_info_card` y `update_info_card`; las tools genéricas `create_connection`, `set_icon` y `delete_node` aceptan igualmente este tipo. `list_diagrams` incorpora el número de cajas informativas y los headers de las situadas en el nivel raíz para que el agente pueda descubrirlas sin cargar primero todo el diagrama.
 
 ## 🚧 Verificación de cuentas y restablecimiento de contraseña por email — implementado, pendiente de despliegue
 

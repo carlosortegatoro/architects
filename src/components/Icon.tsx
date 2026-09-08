@@ -39,6 +39,16 @@ export function NoteIcon() {
   )
 }
 
+export function InfoCardIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1.5" y="2" width="11" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="4.25" cy="5" r="1.25" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M6.5 4.5H10.5M6.5 6.5H9.5M3 9H11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function FolderIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">

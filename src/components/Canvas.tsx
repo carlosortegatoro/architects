@@ -14,10 +14,16 @@ import '@xyflow/react/dist/style.css'
 import { useDiagramStore, type SystemNode } from '../store/diagramStore'
 import { AnnotationNode } from './AnnotationNode'
 import { GroupNode } from './GroupNode'
+import { InfoCardNode } from './InfoCardNode'
 import { SystemBoxNode } from './SystemBoxNode'
 import { UseCaseEdge } from './UseCaseEdge'
 
-const nodeTypes = { systemBox: SystemBoxNode, group: GroupNode, annotation: AnnotationNode }
+const nodeTypes = {
+  systemBox: SystemBoxNode,
+  group: GroupNode,
+  annotation: AnnotationNode,
+  infoCard: InfoCardNode,
+}
 const edgeTypes = { useCase: UseCaseEdge }
 
 type CanvasProps = {

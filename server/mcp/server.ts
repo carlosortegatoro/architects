@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import type { DiagramFile, ParticleShape, ParticleSpeed, UseCase } from '../../src/types.js'
+import type { DiagramFile, InfoCardNodeData, ParticleShape, ParticleSpeed, UseCase } from '../../src/types.js'
 import { signToken } from '../lib/jwt.js'
 import { createDiagramsApi } from './apiClient.js'
 
@@ -15,12 +15,31 @@ const GROUP_MIN_WIDTH = 240
 const GROUP_MIN_HEIGHT = 160
 const GROUP_CHILD_PADDING = 40
 const GROUP_HEADER_PADDING = 60
+const DEFAULT_INFO_CARD_COLOR = '#2563eb'
+const INFO_CARD_WIDTH = 300
+const INFO_CARD_HEIGHT = 180
+const ANNOTATION_WIDTH = 260
+const ANNOTATION_HEIGHT = 140
 
 const PARTICLE_SPEEDS: ParticleSpeed[] = ['real-time', 'near-real-time', 'batch', 'zero-copy', 'none']
 const PARTICLE_SHAPES: ParticleShape[] = ['circle', 'cut-corner-rect']
 
 function nextId(prefix: string) {
   return `${prefix}-${randomUUID()}`
+}
+
+function defaultNodeWidth(type?: string): number {
+  if (type === 'group') return GROUP_WIDTH
+  if (type === 'annotation') return ANNOTATION_WIDTH
+  if (type === 'infoCard') return INFO_CARD_WIDTH
+  return DEFAULT_NODE_WIDTH
+}
+
+function defaultNodeHeight(type?: string): number {
+  if (type === 'group') return GROUP_HEIGHT
+  if (type === 'annotation') return ANNOTATION_HEIGHT
+  if (type === 'infoCard') return INFO_CARD_HEIGHT
+  return DEFAULT_NODE_HEIGHT
 }
 
 function absolutePositionOfNode(
@@ -55,8 +74,8 @@ function fitGroupToChildren(
   let maxY = -Infinity
 
   for (const child of children) {
-    const width = child.width ?? (child.type === 'group' ? GROUP_WIDTH : DEFAULT_NODE_WIDTH)
-    const height = child.height ?? (child.type === 'group' ? GROUP_HEIGHT : DEFAULT_NODE_HEIGHT)
+    const width = child.width ?? defaultNodeWidth(child.type)
+    const height = child.height ?? defaultNodeHeight(child.type)
     maxX = Math.max(maxX, child.position.x + width)
     maxY = Math.max(maxY, child.position.y + height)
   }
@@ -102,8 +121,8 @@ function attachToParent(
     .filter((n) => n.id !== parent.id)
     .map((n) => {
       const abs = absolutePositionOfNode(n, byId)
-      const width = n.width ?? (n.type === 'group' ? GROUP_WIDTH : DEFAULT_NODE_WIDTH)
-      const height = n.height ?? (n.type === 'group' ? GROUP_HEIGHT : DEFAULT_NODE_HEIGHT)
+      const width = n.width ?? defaultNodeWidth(n.type)
+      const height = n.height ?? defaultNodeHeight(n.type)
       return { node: n, abs, width, height }
     })
     .filter(
@@ -141,7 +160,7 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
     {
       title: 'List diagrams',
       description:
-        'List all diagrams owned by the authenticated user, each with a content summary (system/group/connection counts, use case names, and top-level system names). ' +
+        'List all diagrams owned by the authenticated user, each with a content summary (system/group/information-card/connection counts, use case names, and top-level node names). ' +
         'Call this FIRST whenever the user asks to design a new architecture, to check whether an existing diagram already models a similar system, integration, or use case you can reuse as a reference pattern instead of starting from scratch. ' +
         'If a summary looks relevant (shares systems, use cases, or a similar shape), call get_diagram on it before creating anything new.',
       inputSchema: {},
@@ -157,7 +176,7 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
     {
       title: 'Get design guide',
       description:
-        'Read this before designing a new architecture or adding to an existing one. Explains the modeling vocabulary (systems, groups, use cases, connections) and when to use each.',
+        'Read this before designing a new architecture or adding to an existing one. Explains the modeling vocabulary (systems, groups, information cards, annotations, use cases, and connections) and when to use each.',
       inputSchema: {},
     },
     async () => ({
@@ -174,9 +193,13 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
             '  Counter-example: "a single Postgres database used by one service" -> just one system box. Do not create a group for something with no internally-distinguishable parts.',
             '  Groups can nest: pass parentId (another group id) to create_group itself to model a group-within-a-group. Example: "a platform with a data layer that has its own cache and primary database" -> create_group("Platform"), create_group("Data layer", parentId: platformId), then create_system("Cache", parentId: dataLayerId) and create_system("Primary DB", parentId: dataLayerId).',
             '',
+            '- Information card (create_info_card): a connectable card with a logo, header, and multiline description. Use it for a product, capability, external actor, or explanatory concept that needs visible context but is not best represented as a plain system or as a container. It can be nested in a group and connected to any other diagram node.',
+            '',
+            '- Annotation: a free-form note created in the editor. Annotations are connectable, but create_info_card is preferred from MCP when the explanatory element needs a structured header, description, and logo.',
+            '',
             '- Use case (set_use_case): a named *kind* of interaction (e.g. "Checkout", "Nightly sync", "Read replica traffic") with its own color/speed/shape, reused across every connection that represents that same kind of interaction. Call set_use_case once per distinct kind of interaction in the architecture, then reference its id from every relevant create_connection call. Do not create a new use case per connection if the same kind of interaction already exists — reuse it by name.',
             '',
-            '- Connection (create_connection): an edge between two systems (or between a system and a group, or two groups). A connection does not need a use case — pass no useCaseIds for a plain structural link. Pass useCaseIds when the connection represents one or more of the named interactions above.',
+            '- Connection (create_connection): an edge between any two diagram nodes: systems, groups, information cards, or annotations. A connection does not need a use case — pass no useCaseIds for a plain structural link. Pass useCaseIds when the connection represents one or more of the named interactions above.',
             '',
             'Typical structures:',
             '  - A platform with internal modules -> one group with several child systems (parentId), connections between children and to external systems as needed.',
@@ -310,11 +333,89 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
   )
 
   server.registerTool(
+    'create_info_card',
+    {
+      title: 'Create information card',
+      description:
+        'Add a connectable information card with a logo, header, and multiline description. ' +
+        'Use it for products, capabilities, external actors, or explanatory concepts that need more visible context than a plain system box. ' +
+        'It can connect to systems, groups, annotations, and other information cards. Pass parentId to nest it inside a group. Returns the new node id.',
+      inputSchema: {
+        diagramId: z.string().min(1),
+        header: z.string().trim().min(1).max(200),
+        description: z.string().max(4000),
+        color: z.string().optional(),
+        position: z.object({ x: z.number(), y: z.number() }).optional(),
+        parentId: z.string().optional(),
+        icon: z.string().trim().min(1).optional(),
+      },
+    },
+    async ({ diagramId, header, description, color, position, parentId, icon }) => {
+      const nodeId = nextId('info-card')
+      await mutateDiagram(diagramId, (content) => {
+        const node: DiagramFile['nodes'][number] = {
+          id: nodeId,
+          type: 'infoCard',
+          position: position ?? { x: 0, y: 0 },
+          width: INFO_CARD_WIDTH,
+          height: INFO_CARD_HEIGHT,
+          ...(parentId !== undefined ? { parentId } : {}),
+          data: {
+            header,
+            description,
+            color: color ?? DEFAULT_INFO_CARD_COLOR,
+            ...(icon ? { icon } : {}),
+          },
+        }
+        content.nodes.push(node)
+        attachToParent(content, node, parentId)
+      })
+      return { content: [{ type: 'text', text: JSON.stringify({ nodeId }, null, 2) }] }
+    },
+  )
+
+  server.registerTool(
+    'update_info_card',
+    {
+      title: 'Update information card',
+      description:
+        'Update the header, description, color, or logo of an existing information card. ' +
+        'Pass icon as an empty string to remove its logo.',
+      inputSchema: {
+        diagramId: z.string().min(1),
+        nodeId: z.string().min(1),
+        header: z.string().trim().min(1).max(200).optional(),
+        description: z.string().max(4000).optional(),
+        color: z.string().optional(),
+        icon: z.string().optional(),
+      },
+    },
+    async ({ diagramId, nodeId, header, description, color, icon }) => {
+      if (header === undefined && description === undefined && color === undefined && icon === undefined) {
+        throw new Error('Provide at least one information-card field to update')
+      }
+      await mutateDiagram(diagramId, (content) => {
+        const node = content.nodes.find((candidate) => candidate.id === nodeId)
+        if (!node) throw new Error(`Unknown nodeId: ${nodeId}`)
+        if (node.type !== 'infoCard') throw new Error(`Node ${nodeId} is not an information card`)
+
+        const data = node.data as InfoCardNodeData
+        if (header !== undefined) data.header = header
+        if (description !== undefined) data.description = description
+        if (color !== undefined) data.color = color
+        if (icon === '') delete data.icon
+        else if (icon !== undefined) data.icon = icon
+      })
+      return { content: [{ type: 'text', text: JSON.stringify({ nodeId }, null, 2) }] }
+    },
+  )
+
+  server.registerTool(
     'create_connection',
     {
       title: 'Create connection',
       description:
-        'Connect two system boxes (or groups) with an edge. A connection does not need a use case — omit useCaseIds for a plain structural link. ' +
+        'Connect any two diagram nodes (systems, groups, information cards, or annotations) with an edge. A connection does not need a use case — omit useCaseIds for a plain structural link. ' +
         'Pass useCaseIds when this edge represents one or more named kinds of interaction created via set_use_case (e.g. "Checkout", "Nightly sync") — reuse an existing use case id by name rather than creating a duplicate. Returns the new edge id.',
       inputSchema: {
         diagramId: z.string().min(1),
@@ -384,7 +485,7 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
     {
       title: 'Set node icon',
       description:
-        'Set or change the logo/icon of an existing system or group node, given an external image URL. ' +
+        'Set or change the logo/icon of an existing system, group, or information-card node, using an external image URL or preset:<slug>. ' +
         'Pass icon as an empty string to remove the current icon.',
       inputSchema: { diagramId: z.string().min(1), nodeId: z.string().min(1), icon: z.string() },
     },
@@ -404,7 +505,7 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
     {
       title: 'Delete node',
       description:
-        'Delete a system or group node from a diagram. Connections to/from it are deleted too. ' +
+        'Delete any node from a diagram. Connections to/from it are deleted too. ' +
         "If it's a group with children, the children are NOT deleted: they are promoted to the group's " +
         "parent level (or to the diagram root), keeping their absolute canvas position — matches the editor UI.",
       inputSchema: { diagramId: z.string().min(1), nodeId: z.string().min(1) },

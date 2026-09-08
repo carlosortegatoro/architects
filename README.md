@@ -36,12 +36,14 @@ src/
   main.tsx                    # entry point de React
   App.tsx                     # layout raíz, carga remota, autoguardado y modo presentación
   styles.css                  # todos los estilos (sin CSS-in-JS ni módulos, un solo archivo)
-  types.ts                    # tipos del dominio: UseCase, SystemNodeData, ConnectionEdgeData, DiagramFile
+  types.ts                    # tipos del dominio: nodos, casos de uso, conexiones y DiagramFile
   store/
     diagramStore.ts           # store Zustand: nodos, edges, casos de uso + todas las acciones CRUD
   components/
     Canvas.tsx                 # wrapper de <ReactFlow>, prop `interactive` para modo presentación
     SystemBoxNode.tsx          # nodo custom: caja de sistema (icono/logo + label + color)
+    InfoCardNode.tsx           # tarjeta informativa conectable (logo + header + descripción)
+    AnnotationNode.tsx         # nota libre conectable (título + texto)
     UseCaseEdge.tsx            # edge custom: línea(s) con color + animación de partículas por caso de uso
     Sidebar.tsx                # panel izquierdo: alta/baja de sistemas
     UseCaseLegend.tsx          # panel derecho: alta/baja/edición de casos de uso
@@ -66,7 +68,10 @@ server/
 
 Ver [`src/types.ts`](src/types.ts). Resumen:
 
-- **`SystemNodeData`**: `{ label, description?, color, icon? }`. `icon` es un data URL base64 de la imagen subida (se guarda embebido en el JSON, no como archivo aparte).
+- **`SystemNodeData`**: `{ label, description?, color, icon?, handleCounts?, displayMode? }`.
+- **`InfoCardNodeData`**: `{ header, description, color, icon?, handleCounts? }`. Es un tipo separado para no mezclar la semántica de una tarjeta explicativa con la de un sistema.
+- **`AnnotationNodeData`**: `{ title, body?, color?, handleCounts? }`.
+- **`icon`**: puede ser un preset estable (`preset:<slug>`), una URL externa o un data URL base64 de una imagen subida; se persiste dentro del JSON del diagrama.
 - **`UseCase`**: `{ id, name, color, speed, shape }`. Se definen una vez en la leyenda y se reutilizan en varias conexiones.
 - **`ConnectionEdgeData`**: `{ useCaseIds: string[], label? }`. Una conexión puede tener 0, 1 o varios casos de uso asignados.
 - **`DiagramFile`**: `{ version: 1, nodes[], edges[], useCases[] }` — es el formato que se exporta/importa como `.json`.
@@ -79,6 +84,20 @@ Ver [`src/types.ts`](src/types.ts). Resumen:
 - Fila de swatches → cambiar el color de la caja (afecta borde y línea inferior).
 - Handles de conexión en los 4 lados (arrastrar desde el borde para crear una conexión).
 - Botón "✕" → eliminar la caja (y sus conexiones asociadas).
+
+### Cajas informativas (`InfoCardNode`)
+
+- Logo seleccionable desde presets, archivo local o URL.
+- Header y descripción multilínea editables por doble click.
+- Color y tamaño ajustables.
+- Handles configurables en los cuatro lados; pueden ser origen o destino de conexiones con cualquier tipo de nodo.
+- Compatibles con grupos, undo/redo, alineación, importación/exportación, autoguardado y modo presentación.
+- Disponibles en MCP mediante `create_info_card` y `update_info_card`; también funcionan con `create_connection`, `set_icon` y `delete_node`.
+
+### Anotaciones (`AnnotationNode`)
+
+- Título y cuerpo libre editables, color y tamaño ajustables.
+- Handles configurables para conectarlas con sistemas, grupos, cajas informativas u otras anotaciones.
 
 ### Casos de uso (`UseCaseLegend`)
 - Botón "+ Nuevo" → crea un caso de uso con color/nombre por defecto.

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { SystemNodeData } from '../types'
 import { useDiagramStore, type SystemNode } from '../store/diagramStore'
-import { AsteriskIcon, NoteIcon, ShapeFullIcon, ShapeLogoOnlyIcon, ShapeTextOnlyIcon } from './Icon'
+import { AsteriskIcon, InfoCardIcon, NoteIcon, ShapeFullIcon, ShapeLogoOnlyIcon, ShapeTextOnlyIcon } from './Icon'
 
 const SHAPE_BUTTONS: { mode: 'full' | 'logoOnly' | 'textOnly'; icon: JSX.Element; title: string }[] = [
   { mode: 'full', icon: <ShapeFullIcon />, title: 'New system (full)' },
@@ -18,6 +18,7 @@ export function Sidebar() {
   const addNode = useDiagramStore((s) => s.addNode)
   const addGroup = useDiagramStore((s) => s.addGroup)
   const addAnnotation = useDiagramStore((s) => s.addAnnotation)
+  const addInfoCard = useDiagramStore((s) => s.addInfoCard)
   const updateNodeData = useDiagramStore((s) => s.updateNodeData)
   const removeNode = useDiagramStore((s) => s.removeNode)
   const setFocusedNode = useDiagramStore((s) => s.setFocusedNode)
@@ -44,6 +45,15 @@ export function Sidebar() {
             onClick={() => addAnnotation({ x: 150 + Math.random() * 100, y: 100 + Math.random() * 100 })}
           >
             <NoteIcon />
+          </button>
+          <button
+            type="button"
+            className="btn btn--icon"
+            title="New information card"
+            data-tooltip="New Information Card"
+            onClick={() => addInfoCard({ x: 150 + Math.random() * 100, y: 100 + Math.random() * 100 })}
+          >
+            <InfoCardIcon />
           </button>
         </div>
       </div>

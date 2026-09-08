@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { NodeResizer, type Node, type NodeProps } from '@xyflow/react'
-import type { AnnotationNodeData } from '../types'
+import { useEffect, useState } from 'react'
+import { Handle, NodeResizer, useUpdateNodeInternals, type Node, type NodeProps } from '@xyflow/react'
+import type { AnnotationNodeData, HandleCounts } from '../types'
 import { useDiagramStore } from '../store/diagramStore'
+import { buildHandles, DEFAULT_HANDLE_COUNTS, SideStepper } from './nodeHandles'
 
 type AnnotationNodeType = Node<AnnotationNodeData>
 
@@ -16,10 +17,35 @@ export function AnnotationNode({ id, data, selected }: NodeProps<AnnotationNodeT
   const updateNodeData = useDiagramStore((s) => s.updateNodeData)
   const removeNode = useDiagramStore((s) => s.removeNode)
   const presenting = useDiagramStore((s) => s.presenting)
+  const updateNodeInternals = useUpdateNodeInternals()
+
+  const counts = data.handleCounts ?? DEFAULT_HANDLE_COUNTS
+  const handles = buildHandles(counts)
+
+  useEffect(() => {
+    updateNodeInternals(id)
+  }, [id, counts.top, counts.right, counts.bottom, counts.left, updateNodeInternals])
+
+  function setSideCount(side: keyof HandleCounts, value: number) {
+    updateNodeData(id, { handleCounts: { ...counts, [side]: value } })
+  }
 
   return (
     <div className="annotation-box" style={{ borderColor: data.color }}>
       <NodeResizer isVisible={selected && !presenting} minWidth={MIN_WIDTH} minHeight={MIN_HEIGHT} />
+
+      {selected && !presenting && (
+        <>
+          <SideStepper side="top" value={counts.top} onChange={(value) => setSideCount('top', value)} />
+          <SideStepper side="right" value={counts.right} onChange={(value) => setSideCount('right', value)} />
+          <SideStepper side="bottom" value={counts.bottom} onChange={(value) => setSideCount('bottom', value)} />
+          <SideStepper side="left" value={counts.left} onChange={(value) => setSideCount('left', value)} />
+        </>
+      )}
+
+      {handles.map((handle) => (
+        <Handle key={handle.id} type="source" position={handle.position} id={handle.id} style={handle.style} />
+      ))}
 
       <div className="annotation-box__header nodrag" onDoubleClick={() => setEditingTitle(true)}>
         {editingTitle ? (

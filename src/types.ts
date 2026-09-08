@@ -36,6 +36,15 @@ export type AnnotationNodeData = {
   title: string
   body?: string
   color?: string
+  handleCounts?: HandleCounts
+}
+
+export type InfoCardNodeData = {
+  header: string
+  description: string
+  color: string
+  icon?: string
+  handleCounts?: HandleCounts
 }
 
 export type ConnectionEdgeData = {
@@ -53,9 +62,9 @@ export type DiagramFile = {
   version: 1
   nodes: Array<{
     id: string
-    type: 'systemBox' | 'group' | 'annotation'
+    type: 'systemBox' | 'group' | 'annotation' | 'infoCard'
     position: { x: number; y: number }
-    data: SystemNodeData | GroupNodeData | AnnotationNodeData
+    data: SystemNodeData | GroupNodeData | AnnotationNodeData | InfoCardNodeData
     width?: number
     height?: number
     parentId?: string
