@@ -1,12 +1,12 @@
 import { create } from 'zustand'
-import { authApi, type CurrentUser } from '../api/client'
+import { authApi, type CurrentUser, type RegistrationResult } from '../api/client'
 
 type AuthState = {
   user: CurrentUser | null
   status: 'loading' | 'authenticated' | 'anonymous'
   checkSession: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string) => Promise<void>
+  register: (email: string, password: string) => Promise<RegistrationResult>
   logout: () => Promise<void>
 }
 
@@ -29,8 +29,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   register: async (email, password) => {
-    const user = await authApi.register(email, password)
-    set({ user, status: 'authenticated' })
+    const result = await authApi.register(email, password)
+    set({ user: null, status: 'anonymous' })
+    return result
   },
 
   logout: async () => {

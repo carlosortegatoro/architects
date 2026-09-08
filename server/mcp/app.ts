@@ -12,7 +12,7 @@ export function createMcpApp() {
   )
 
   app.post('/', requireBearerAuth({ verifier: mcpTokenVerifier }), async (req, res) => {
-    const server = buildMcpServer(req.auth!.extra as { userId: string; email: string })
+    const server = buildMcpServer(req.auth!.extra as { userId: string; email: string; authVersion: number })
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
     await server.connect(transport)
     await transport.handleRequest(req, res, req.body)

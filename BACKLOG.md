@@ -104,6 +104,36 @@ De paso se corrigieron dos bugs pre-existentes que solo se manifestaban con 2+ n
 
 Toggle global (`particlesPaused` en el store, no persistido, mismo patrón que `spotlightEnabled`) en `PresentationControls`. `Canvas.tsx` itera con `querySelectorAll('svg')` sobre **todos** los `<svg>` dentro del canvas — React Flow renderiza un `<svg>` independiente por edge (no uno único compartido, como se asumía inicialmente), así que iterar sobre uno solo dejaba sin pausar la mayoría de las partículas. Se confirmó soporte de `pauseAnimations()`/`unpauseAnimations()` en el entorno de Carlos antes de comprometerse al enfoque.
 
+## Caja informativa con logo, header y descripción
+
+Nuevo tipo de nodo visualmente más rico que las cajas de sistema actuales y que el nodo `annotation`: una tarjeta con **logo**, **header** y **descripción multilínea**. Serviría para representar productos, capacidades o bloques conceptuales que necesitan algo más de contexto visible dentro del propio diagrama.
+
+Propuesta inicial:
+- Nuevo tipo de nodo (p.ej. `infoCard`) y datos propios: `{ header, description, icon?, color }`.
+- Edición inline del header y de la descripción, selección/carga de logo y personalización de color.
+- Tamaño ajustable mediante `NodeResizer`, con una maquetación que mantenga legibles los tres elementos al redimensionar.
+- Persistencia completa en `DiagramFile`, compatibilidad con undo/redo, importación/exportación, grupos anidados y modo presentación.
+- Decidir antes de implementarlo si tendrá handles y podrá participar en conexiones como un sistema, o si será únicamente informativo como `annotation`.
+- Decidir también si se expondrá desde MCP mediante una tool propia o ampliando alguna de las tools de creación existentes.
+
+Aunque `SystemNodeData.description` ya existe, actualmente no se usa. Conviene decidir durante la implementación si este nuevo nodo aprovecha y formaliza ese campo o si debe permanecer como un tipo totalmente independiente para no sobrecargar semánticamente las cajas de sistema.
+
+## 🚧 Verificación de cuentas y restablecimiento de contraseña por email — implementado, pendiente de despliegue
+
+Añadida verificación de la dirección de email al registrar una cuenta y un flujo seguro para **restablecer** una contraseña olvidada. El proveedor elegido es el add-on de Mailgun para Heroku, consumido mediante su API HTTP y encapsulado detrás de `server/email/sender.ts`.
+
+Implementación preparada:
+- Migración `002_email_verification_and_password_reset.sql`: añade `email_verified_at`/`auth_version`, conserva activas las cuentas existentes y crea `auth_tokens`.
+- Tokens aleatorios de un solo uso almacenados únicamente como SHA-256, con 24 horas para verificar y 30 minutos para restablecer.
+- Registro sin sesión hasta verificar, reenvío de verificación, recuperación y cambio de contraseña mediante nuevos endpoints y pantallas públicas.
+- Respuestas neutras para evitar enumeración de usuarios, cooldown por cuenta y rate limiting por IP.
+- Cambio de contraseña con incremento de `auth_version`, que revoca cookies web y tokens MCP anteriores.
+- Enlaces con el token en el fragmento de la URL para evitar que aparezca en los logs HTTP de Heroku; confirmación mediante `POST` y tracking de Mailgun desactivado.
+- `Procfile` con release phase para aplicar migraciones antes de activar cada nueva versión.
+- Pruebas unitarias para criptografía de tokens y generación de enlaces/plantillas.
+
+Pendiente antes de marcarla como completada: desplegar, confirmar `APP_BASE_URL`, dominio/remitente y región de Mailgun en las config vars de Heroku, y realizar una prueba real de ambos correos contra una cuenta autorizada en el sandbox de Mailgun.
+
 ## Librería de sistemas reutilizables
 
 Hoy cada `create_system`/caja de sistema se crea desde cero cada vez (nombre, logo/icono, color, todo a mano o dictado al MCP en cada diagrama). Idea: un catálogo de sistemas "de librería" —definidos una vez con nombre, logo/icono y color ya fijados— reutilizable entre diagramas distintos, en vez de repetir la configuración cada vez que ese mismo sistema (p.ej. "Stripe", "Postgres", "Auth0") aparece en una arquitectura nueva.

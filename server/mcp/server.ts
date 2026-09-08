@@ -124,8 +124,8 @@ function attachToParent(
   }
 }
 
-export function buildMcpServer(user: { userId: string; email: string }) {
-  const sessionToken = signToken({ sub: user.userId, email: user.email }, '5m')
+export function buildMcpServer(user: { userId: string; email: string; authVersion: number }) {
+  const sessionToken = signToken({ sub: user.userId, email: user.email, ver: user.authVersion }, '5m')
   const diagramsApi = createDiagramsApi(sessionToken)
 
   async function mutateDiagram(diagramId: string, mutate: (content: DiagramFile) => void) {

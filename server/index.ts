@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import express from 'express'
+import express, { type ErrorRequestHandler } from 'express'
 import cookieParser from 'cookie-parser'
 import authRouter from './routes/auth.js'
 import diagramsRouter from './routes/diagrams.js'
@@ -28,6 +28,16 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(distDir, 'index.html'))
   })
 }
+
+const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
+  console.error(error)
+  if (res.headersSent) {
+    next(error)
+    return
+  }
+  res.status(500).json({ error: 'Internal server error' })
+}
+app.use(errorHandler)
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`)

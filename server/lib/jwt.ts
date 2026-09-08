@@ -4,6 +4,7 @@ import type { StringValue } from 'ms'
 export interface JwtPayload {
   sub: string
   email: string
+  ver?: number
 }
 
 type DecodedJwtPayload = JwtPayload & { exp: number }

@@ -2,9 +2,11 @@ import type { DiagramFile } from '../types'
 
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  code?: string
+  constructor(status: number, message: string, code?: string) {
     super(message)
     this.status = status
+    this.code = code
   }
 }
 
@@ -15,13 +17,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const body = await res.json().catch(() => null)
-    throw new ApiError(res.status, body?.error ?? res.statusText)
+    throw new ApiError(res.status, body?.error ?? res.statusText, body?.code)
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
 export type CurrentUser = { id: string; email: string }
+export type RegistrationResult = { status: 'verification_required'; email: string }
 
 export type DiagramSummary = {
   id: string
@@ -58,11 +61,25 @@ export type PublicShare = {
 
 export const authApi = {
   register: (email: string, password: string) =>
-    request<CurrentUser>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),
+    request<RegistrationResult>('/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),
   login: (email: string, password: string) =>
     request<CurrentUser>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
   me: () => request<CurrentUser>('/auth/me'),
+  resendVerification: (email: string) =>
+    request<{ message: string }>('/auth/verification/resend', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  confirmVerification: (token: string) =>
+    request<void>('/auth/verification/confirm', { method: 'POST', body: JSON.stringify({ token }) }),
+  forgotPassword: (email: string) =>
+    request<{ message: string }>('/auth/password/forgot', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (token: string, password: string) =>
+    request<void>('/auth/password/reset', { method: 'POST', body: JSON.stringify({ token, password }) }),
   createMcpToken: () => request<{ token: string }>('/auth/mcp-token', { method: 'POST' }),
 }
 

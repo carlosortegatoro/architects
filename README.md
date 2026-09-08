@@ -1,42 +1,40 @@
 # Editor de Arquitecturas Técnicas
 
-App web standalone para diseñar diagramas de arquitectura interactivos: cajas que representan sistemas, conectadas por líneas que representan casos de uso concretos (con color y animación propios). Sin backend — todo vive en el navegador, con export/import a JSON.
+App web multiusuario para diseñar diagramas de arquitectura interactivos: cajas que representan sistemas, conectadas por líneas que representan casos de uso concretos (con color y animación propios). Los diagramas se guardan en PostgreSQL y también se pueden exportar/importar como JSON.
 
 ## Stack
 
-- **Vite + React + TypeScript** — proyecto 100% cliente, sin SSR.
+- **Vite + React + TypeScript** — SPA sin SSR.
 - **[@xyflow/react](https://reactflow.dev)** (React Flow) — motor de nodos/edges: drag-and-drop, dibujo de conexiones, nodos y edges personalizados.
 - **Zustand** — estado global del diagrama (nodos, edges, casos de uso).
-- Persistencia: `localStorage` (autoguardado) + export/import manual de archivos `.json`.
+- **Express + PostgreSQL** — autenticación, persistencia multiusuario y enlaces públicos de solo lectura.
+- **Mailgun** — verificación de cuentas y restablecimiento de contraseñas mediante el add-on de Heroku.
+- **MCP HTTP** — creación y edición textual de diagramas con tokens por usuario.
 
 ## Cómo arrancar
 
 ```bash
 npm install
+npm run migrate
 npm run dev
 ```
 
-Abre la URL que indique Vite (por defecto `http://localhost:5173`, puede variar si el puerto está ocupado).
+Copia primero `.env.example` a `.env` y configura al menos `DATABASE_URL` y `JWT_SECRET`. Para probar los flujos de email también hacen falta las variables de Mailgun y `APP_BASE_URL`. Abre la URL que indique Vite (por defecto `http://localhost:5173`, puede variar si el puerto está ocupado).
 
 ```bash
 npm run build     # build de producción (tsc + vite build)
 npm run preview   # sirve el build de producción localmente
+npm test          # pruebas unitarias del backend
 ```
 
-**Importante:** este proyecto no está inicializado como repositorio git. Si quieres control de versiones:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: editor de arquitecturas técnicas"
-```
+En Heroku, la release phase del `Procfile` aplica automáticamente las migraciones antes de activar una nueva versión.
 
 ## Estructura
 
 ```
 src/
   main.tsx                    # entry point de React
-  App.tsx                     # layout raíz, hidratación desde localStorage, modo presentación
+  App.tsx                     # layout raíz, carga remota, autoguardado y modo presentación
   styles.css                  # todos los estilos (sin CSS-in-JS ni módulos, un solo archivo)
   types.ts                    # tipos del dominio: UseCase, SystemNodeData, ConnectionEdgeData, DiagramFile
   store/
@@ -49,9 +47,19 @@ src/
     UseCaseLegend.tsx          # panel derecho: alta/baja/edición de casos de uso
     EdgeInspector.tsx          # panel derecho: asignar casos de uso a la conexión seleccionada
     PresentationLegend.tsx     # leyenda flotante de casos de uso en modo presentación
-    Toolbar.tsx                # barra superior: guardar/cargar JSON, limpiar, entrar en modo presentación
+    MenuBar.tsx                # barra superior: archivo, presentación, cuenta y configuración
+    LoginScreen.tsx            # login, registro y estado pendiente de verificación
+    VerifyEmailScreen.tsx      # confirmación de la dirección de email
+    ForgotPasswordScreen.tsx   # solicitud de recuperación de contraseña
+    ResetPasswordScreen.tsx    # establecimiento de la nueva contraseña
   utils/
-    fileIO.ts                  # serialización a/desde JSON, descarga de archivo, localStorage
+    fileIO.ts                  # serialización JSON y migración del antiguo estado local
+server/
+  index.ts                     # aplicación Express y publicación del frontend
+  routes/                      # autenticación, diagramas y enlaces compartidos
+  email/                       # adaptador Mailgun y plantillas transaccionales
+  mcp/                         # servidor MCP HTTP multiusuario
+  migrations/                  # esquema PostgreSQL versionado
 ```
 
 ## Modelo de datos
@@ -59,7 +67,7 @@ src/
 Ver [`src/types.ts`](src/types.ts). Resumen:
 
 - **`SystemNodeData`**: `{ label, description?, color, icon? }`. `icon` es un data URL base64 de la imagen subida (se guarda embebido en el JSON, no como archivo aparte).
-- **`UseCase`**: `{ id, name, color, animation: 'particles' | 'none' }`. Se definen una vez en la leyenda y se reutilizan en varias conexiones.
+- **`UseCase`**: `{ id, name, color, speed, shape }`. Se definen una vez en la leyenda y se reutilizan en varias conexiones.
 - **`ConnectionEdgeData`**: `{ useCaseIds: string[], label? }`. Una conexión puede tener 0, 1 o varios casos de uso asignados.
 - **`DiagramFile`**: `{ version: 1, nodes[], edges[], useCases[] }` — es el formato que se exporta/importa como `.json`.
 
@@ -90,13 +98,20 @@ Ver [`src/types.ts`](src/types.ts). Resumen:
 - Se sale con el botón "✕" de la leyenda o con la tecla `Esc`.
 
 ### Persistencia
-- **Autoguardado**: cada cambio en el store se serializa y guarda en `localStorage` (clave `architectures.diagram`, ver [`utils/fileIO.ts`](src/utils/fileIO.ts)). Al abrir la app, se restaura automáticamente si existe.
+- **Autoguardado**: cada cambio se guarda en PostgreSQL con debounce; el frontend comprueba además si el diagrama ha sido actualizado remotamente.
+- **Migración local**: si una cuenta nueva no tiene diagramas, se ofrece importar el antiguo diagrama almacenado en `localStorage`.
 - **Export**: botón "Guardar JSON" descarga el diagrama completo como `diagrama.json`.
 - **Import**: botón "Cargar JSON" reemplaza el diagrama actual por el contenido de un archivo `.json` (se valida `version === 1` antes de aplicar).
 
+### Autenticación
+- Se admiten direcciones `@salesforce.com` y, como excepción, la cuenta Gmail dedicada a pruebas.
+- Las cuentas nuevas deben verificar su dirección antes de iniciar sesión.
+- Los enlaces de verificación caducan a las 24 horas y los de restablecimiento de contraseña a los 30 minutos.
+- Cambiar la contraseña invalida las sesiones web y tokens MCP anteriores.
+
 ## Decisiones de diseño relevantes
 
-- **Sin backend**: se optó por export/import de archivos JSON en vez de una base de datos, para mantener la herramienta ligera y sin infraestructura que mantener.
+- **Persistencia multiusuario**: Express y PostgreSQL mantienen cuentas y diagramas; el JSON sigue siendo el formato portable de importación/exportación.
 - **React Flow en vez de SVG/Canvas a medida**: ahorra la reimplementación de drag-and-drop, zoom/pan, y gestión de conexiones — todo eso viene resuelto por la librería.
 - **Animación de partículas con SVG nativo (`animateMotion`)**: se evitó añadir una librería de animación; el propio SVG soporta mover un elemento a lo largo de un `path` con temporización e loop infinito.
 - **Múltiples casos de uso por conexión → líneas paralelas**: en vez de un gradiente o mezcla de color, cada caso de uso mantiene su línea y color propio, evitando ambigüedad visual sobre qué caso de uso está presente.
@@ -105,5 +120,4 @@ Ver [`src/types.ts`](src/types.ts). Resumen:
 ## Pendientes / mejoras conocidas
 
 - El layout de 3 columnas (sidebar + canvas + panel derecho) necesita bastante ancho — en viewports muy estrechos (menos de ~520px) el canvas puede colapsar a 0px de ancho. No se ha hecho el layout responsive todavía.
-- No hay tests automatizados.
-- El proyecto no tiene `.git` inicializado (ver sección "Cómo arrancar" arriba).
+- La cobertura automatizada todavía es parcial y está concentrada en los flujos sensibles del backend.

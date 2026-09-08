@@ -1714,6 +1714,37 @@ body,
   margin: 0;
 }
 
+.login-screen__message,
+.login-screen__success {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.login-screen__message {
+  color: #94a3b8;
+}
+
+.login-screen__success {
+  color: #86efac;
+}
+
+.login-screen__link {
+  color: #60a5fa;
+  font-size: 12.5px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.login-screen__link:hover {
+  text-decoration: underline;
+}
+
+.login-screen__button-link {
+  text-align: center;
+  text-decoration: none;
+}
+
 .login-screen__switch {
   background: none;
   border: none;
