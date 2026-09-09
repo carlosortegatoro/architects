@@ -36,6 +36,8 @@ export type AnnotationNodeData = {
   title: string
   body?: string
   color?: string
+  // Kept when converting a card/system to a note, even though notes do not show a logo.
+  icon?: string
   handleCounts?: HandleCounts
 }
 
@@ -46,6 +48,8 @@ export type InfoCardNodeData = {
   icon?: string
   handleCounts?: HandleCounts
 }
+
+export type NodeShape = 'full' | 'logoOnly' | 'textOnly' | 'infoCard' | 'annotation'
 
 export type ConnectionEdgeData = {
   useCaseIds: string[]

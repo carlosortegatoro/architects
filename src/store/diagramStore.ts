@@ -16,11 +16,13 @@ import type {
   DiagramFile,
   GroupNodeData,
   InfoCardNodeData,
+  NodeShape,
   Scenario,
   SystemNodeData,
   UseCase,
 } from '../types'
 import { diagramsApi } from '../api/client'
+import { convertNodeShape, NODE_SHAPE_SIZES } from '../utils/nodeShape'
 
 let idCounter = 0
 function nextId(prefix: string) {
@@ -201,6 +203,8 @@ type DiagramState = {
   addGroup: (position: { x: number; y: number }) => void
   addAnnotation: (position: { x: number; y: number }) => void
   addInfoCard: (position: { x: number; y: number }) => void
+  selectNode: (id: string) => void
+  changeNodeShape: (id: string, shape: NodeShape) => void
   updateNodeData: (id: string, data: Partial<SystemNodeData & GroupNodeData & AnnotationNodeData & InfoCardNodeData>) => void
   removeNode: (id: string) => void
   alignNodes: (ids: string[], mode: AlignMode) => void
@@ -262,6 +266,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
   // once on the transition into dragging rather than on every mousemove tick (React Flow
   // reports `dragging: true` on every tick of an in-progress drag, not just the first).
   let dragActive = false
+  let resizeActive = false
 
   return {
   nodes: [],
@@ -458,14 +463,20 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
     const isDragging = changes.some((c) => c.type === 'position' && c.dragging === true)
     const isDragStop = changes.some((c) => c.type === 'position' && c.dragging === false)
     const structuralChange = changes.some((c) => c.type === 'add' || c.type === 'remove')
+    const isResizing = changes.some((c) => c.type === 'dimensions' && c.resizing === true)
+    const isResizeStop = changes.some((c) => c.type === 'dimensions' && c.resizing === false)
 
-    if (isDragging && !dragActive) {
+    if (isResizing && !resizeActive) {
+      commit()
+      resizeActive = true
+    } else if (isDragging && !dragActive) {
       commit()
       dragActive = true
     } else if (structuralChange) {
       commit()
     }
     if (isDragStop) dragActive = false
+    if (isResizeStop) resizeActive = false
 
     const nextNodes = applyNodeChanges(changes, get().nodes) as SystemNode[]
     const finishedDragIds = new Set(
@@ -475,7 +486,10 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
     )
 
     if (finishedDragIds.size === 0) {
-      set({ nodes: nextNodes, isDirty: true })
+      const contentChanged = changes.some((c) =>
+        c.type !== 'select' && (c.type !== 'dimensions' || Boolean(c.setAttributes)),
+      )
+      set({ nodes: nextNodes, isDirty: get().isDirty || contentChanged })
       return
     }
 
@@ -568,7 +582,10 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
 
   onEdgesChange: (changes) => {
     if (changes.some((c) => c.type === 'remove')) commit()
-    set({ edges: applyEdgeChanges(changes, get().edges) as ConnectionEdge[], isDirty: true })
+    set({
+      edges: applyEdgeChanges(changes, get().edges) as ConnectionEdge[],
+      isDirty: get().isDirty || changes.some((c) => c.type !== 'select'),
+    })
   },
 
   onConnect: (connection) => {
@@ -593,8 +610,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
       id: nextId('node'),
       type: 'systemBox',
       position,
-      width: 220,
-      height: 110,
+      ...NODE_SHAPE_SIZES[displayMode ?? 'full'],
       data: { label: 'New system', color: '#334155', ...(displayMode && displayMode !== 'full' ? { displayMode } : {}) },
     }
     set({ nodes: [...get().nodes, node], isDirty: true })
@@ -642,6 +658,48 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
       },
     }
     set({ nodes: [...get().nodes, node], isDirty: true })
+  },
+
+  selectNode: (id) => {
+    if (!get().nodes.some((node) => node.id === id)) return
+    set({
+      nodes: get().nodes.map((node) => ({ ...node, selected: node.id === id })),
+      edges: get().edges.map((edge) => edge.selected ? { ...edge, selected: false } : edge),
+      selectedEdgeId: null,
+    })
+  },
+
+  changeNodeShape: (id, shape) => {
+    const { nodes, presenting } = get()
+    const node = nodes.find((candidate) => candidate.id === id)
+    if (!node || presenting) return
+    const converted = convertNodeShape(node, shape)
+    if (converted === node) return
+
+    // One history entry for the conversion AND any necessary ancestor growth.
+    commit()
+    const byId = new Map(nodes.map((candidate) => [candidate.id, candidate]))
+    byId.set(id, converted)
+    let parentId = converted.parentId
+    const visited = new Set([id])
+    while (parentId && !visited.has(parentId)) {
+      visited.add(parentId)
+      const parent = byId.get(parentId)
+      if (!parent || parent.type !== 'group') break
+      const fitted = fitGroupToChildren([...byId.values()].filter((child) => child.parentId === parentId))
+      if (fitted) {
+        const width = Math.max(parent.width ?? GROUP_WIDTH, fitted.width)
+        const height = Math.max(parent.height ?? GROUP_HEIGHT, fitted.height)
+        if (width !== parent.width || height !== parent.height) {
+          byId.set(parentId, {
+            ...parent, width, height, measured: { width, height },
+            ...(parent.style ? { style: { ...parent.style, width, height } } : {}),
+          })
+        }
+      }
+      parentId = parent.parentId
+    }
+    set({ nodes: nodes.map((candidate) => byId.get(candidate.id)!), isDirty: true })
   },
 
   updateNodeData: (id, data) => {

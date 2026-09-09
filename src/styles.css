@@ -453,7 +453,14 @@ body,
 
 .system-box--compact .system-box__main {
   justify-content: center;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.system-box--compact .system-box__actions {
+  flex-wrap: wrap;
+  gap: 3px;
 }
 
 .system-box--compact .icon-picker {
@@ -1099,7 +1106,7 @@ body,
 }
 
 .react-flow__resize-control.handle {
-  position: relative;
+  position: absolute;
 }
 
 .react-flow__handle::after {
@@ -1787,6 +1794,114 @@ body,
   gap: 4px;
   padding: 8px 12px;
 }
+
+.node-shape-toolbar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+}
+
+.node-shape-toolbar__button,
+.node-shape-menu {
+  background: #111827;
+  color: #e2e8f0;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.25);
+}
+
+.node-shape-toolbar__button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.node-shape-menu {
+  position: absolute;
+  z-index: 1100;
+  width: 222px;
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 16px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 6px;
+}
+
+.node-shape-menu__title {
+  padding: 6px 8px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.node-shape-menu__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 8px;
+  background: transparent;
+  color: inherit;
+  border: none;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.node-shape-menu__option svg { flex-shrink: 0; }
+.node-shape-menu__check { margin-left: auto; }
+
+.node-shape-menu__option:hover,
+.node-shape-menu__option:focus-visible,
+.node-shape-toolbar__button:hover {
+  background: #1f2937;
+}
+
+.node-shape-menu__option[aria-checked="true"] {
+  background: #1e3a5f;
+  color: #bfdbfe;
+}
+
+.node-shape-toolbar__button:focus-visible,
+.node-shape-menu__option:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: -2px;
+}
+
+.node-shape-menu__hint {
+  padding: 8px;
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.app--light .node-shape-toolbar__button,
+.app--light .node-shape-menu {
+  background: #fff;
+  color: #334155;
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 22px rgba(15, 23, 42, 0.15);
+}
+
+.app--light .node-shape-menu__option:hover,
+.app--light .node-shape-menu__option:focus-visible,
+.app--light .node-shape-toolbar__button:hover {
+  background: #f1f5f9;
+}
+
+.app--light .node-shape-menu__option[aria-checked="true"] {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.app--light .node-shape-menu__hint { color: #64748b; }
 
 .shapes-toolbox__btn {
   flex: 1;

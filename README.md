@@ -24,7 +24,7 @@ Copia primero `.env.example` a `.env` y configura al menos `DATABASE_URL` y `JWT
 ```bash
 npm run build     # build de producción (tsc + vite build)
 npm run preview   # sirve el build de producción localmente
-npm test          # pruebas unitarias del backend
+npm test          # pruebas de backend y del store del editor
 ```
 
 En Heroku, la release phase del `Procfile` aplica automáticamente las migraciones antes de activar una nueva versión.
@@ -98,6 +98,14 @@ Ver [`src/types.ts`](src/types.ts). Resumen:
 
 - Título y cuerpo libre editables, color y tamaño ajustables.
 - Handles configurables para conectarlas con sistemas, grupos, cajas informativas u otras anotaciones.
+
+### Cambiar la forma de una caja
+
+Clic derecho sobre una caja, o selección de una sola caja → botón `Change shape` sobre el canvas. El selector ofrece caja completa, solo logo, solo texto, caja informativa y anotación. Los grupos no se convierten.
+
+El cambio conserva textos, logo (aunque no sea visible), color, posición, grupo y conexiones. Aplica el tamaño inicial de la forma elegida y amplía los grupos contenedores si hace falta. `Ctrl/Cmd+Z` restaura la forma, contenido y tamaño anteriores en un solo paso; `Ctrl/Cmd+Shift+Z` rehace la conversión. Elegir la forma actual o cerrar el menú no añade cambios al historial.
+
+Para probarlo con `npm run dev`, utiliza un diagrama de prueba: conecta una caja, personaliza su contenido y tamaño, cambia entre las cinco formas y comprueba deshacer/rehacer. Repite dentro de un grupo y exporta/importa el JSON para comprobar que el contenido oculto se conserva. El menú admite flechas y Enter/Espacio; Escape o clic fuera lo cierran.
 
 ### Casos de uso (`UseCaseLegend`)
 - Botón "+ Nuevo" → crea un caso de uso con color/nombre por defecto.

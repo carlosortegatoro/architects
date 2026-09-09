@@ -12,9 +12,29 @@ Ordenadas de más fácil a más compleja de desarrollar.
 
 `SystemNodeData.displayMode?: 'full' | 'logoOnly' | 'textOnly'` en `types.ts`, con fallback a `'full'` cuando no está presente (mismo patrón que `showEdgeLabels`). `SystemBoxNode.tsx` renderiza condicionalmente logo/texto según `data.displayMode`.
 
+## ✅ Cambiar la forma de una caja existente — implementado y validado localmente
+
+Selector compartido mediante clic derecho sobre una caja o el botón `Change shape` al seleccionar un solo nodo. Permite convertir entre caja completa, solo logo, solo texto, caja informativa y anotación; los grupos quedan excluidos como origen y destino.
+
+Conserva identificador, posición, pertenencia a grupos, textos, logo, color, puntos de conexión y conexiones. Los campos no visibles en la nueva forma se mantienen también al exportar/importar JSON. Cada destino usa su tamaño inicial; si requiere espacio, se amplían los grupos ancestros. Cada conversión es un paso independiente de deshacer/rehacer, que restaura los datos, las dimensiones personalizadas y los tamaños de los grupos afectados. Un redimensionado posterior tiene su propio paso de historial.
+
+El menú indica la forma actual, acepta teclado (flechas, Enter/Espacio y Escape) y se cierra al pulsar fuera. No se ofrece en presentación o vistas compartidas y respeta el menú nativo al editar texto. Abrir el selector o elegir la forma actual no crea una edición.
+
+Validación visual local confirmada por Carlos y commit/push autorizados. El despliegue a producción es una operación aparte y requiere su aprobación.
+
 ## ✅ Escenarios: grupos de casos de uso para presentación — implementado
 
 `Scenario { id, name, useCaseIds }` en `DiagramFile.scenarios`, con acciones `addScenario`/`updateScenario`/`removeScenario`/`applyScenario` en `diagramStore.ts`. `applyScenario` calcula `hiddenUseCaseIds` como el complementario de `useCaseIds`, reutilizando el filtrado existente en `Canvas.tsx` sin tocarlo. Gestión de escenarios junto a los casos de uso; cambio rápido de un clic en `PresentationLegend` durante la presentación.
+
+## Atajos de teclado para cambiar escenarios en presentación
+
+Permitir cambiar de escenario sin usar el ratón mientras el diagrama está en modo presentación:
+
+- Teclas `1`–`9` para activar directamente el escenario correspondiente según su orden en la leyenda.
+- Flechas `←`/`→` para activar el escenario anterior o siguiente.
+- Mostrar el número de acceso rápido junto al nombre de cada escenario en `PresentationLegend`.
+- Guardar qué escenario está activo para poder navegar de forma cíclica con las flechas y reflejar visualmente la selección actual.
+- Mantener `Escape` reservado para salir del modo presentación e ignorar shortcuts cuando el foco esté en un campo editable.
 
 ## ✅ Resaltado de sistemas/conexiones y puntero visible en presentación — implementado
 

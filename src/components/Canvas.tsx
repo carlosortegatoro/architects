@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Background,
   ConnectionMode,
@@ -17,6 +17,8 @@ import { GroupNode } from './GroupNode'
 import { InfoCardNode } from './InfoCardNode'
 import { SystemBoxNode } from './SystemBoxNode'
 import { UseCaseEdge } from './UseCaseEdge'
+import { NodeShapeControls, type NodeShapeMenuPosition } from './NodeShapeControls'
+import { getNodeShape } from '../utils/nodeShape'
 
 const nodeTypes = {
   systemBox: SystemBoxNode,
@@ -57,6 +59,27 @@ export function Canvas({ interactive = true }: CanvasProps) {
   const setHighlightedNodes = useDiagramStore((s) => s.setHighlightedNodes)
   const toggleHighlightedNode = useDiagramStore((s) => s.toggleHighlightedNode)
   const clearHighlight = useDiagramStore((s) => s.clearHighlight)
+  const selectNode = useDiagramStore((s) => s.selectNode)
+  const [shapeMenu, setShapeMenu] = useState<NodeShapeMenuPosition | null>(null)
+  const closeShapeMenu = useCallback(() => setShapeMenu(null), [])
+  const selectedNodes = nodes.filter((node) => node.selected)
+  const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : undefined
+
+  useEffect(() => {
+    if (!interactive) closeShapeMenu()
+  }, [interactive, closeShapeMenu])
+
+  const onNodeContextMenu: NodeMouseHandler<SystemNode> = useCallback((event, node) => {
+    const target = event.target as HTMLElement
+    if (target.closest('input, textarea, [contenteditable]:not([contenteditable="false"])')) return
+    if (getNodeShape(node) === null) return
+    event.preventDefault()
+    event.stopPropagation()
+    const bounds = wrapperRef.current?.getBoundingClientRect()
+    if (!bounds) return
+    selectNode(node.id)
+    setShapeMenu({ nodeId: node.id, x: event.clientX - bounds.left, y: event.clientY - bounds.top })
+  }, [selectNode])
 
   const visibleEdges = useMemo(() => {
     if (!presenting || hiddenUseCaseIds.length === 0) return edges
@@ -181,7 +204,9 @@ export function Canvas({ interactive = true }: CanvasProps) {
         onReconnect={interactive ? onReconnect : undefined}
         onEdgeClick={onEdgeClick}
         onNodeClick={onNodeClick}
+        onNodeContextMenu={interactive ? onNodeContextMenu : undefined}
         onPaneClick={onPaneClick}
+        onMoveStart={closeShapeMenu}
         onNodeDrag={interactive ? onNodeDrag : undefined}
         onNodeDragStop={interactive ? onNodeDragStop : undefined}
         defaultEdgeOptions={defaultEdgeOptions}
@@ -198,6 +223,15 @@ export function Canvas({ interactive = true }: CanvasProps) {
         <Controls showInteractive={interactive} />
         {interactive && <MiniMap pannable zoomable />}
       </ReactFlow>
+      {interactive && (
+        <NodeShapeControls
+          node={selectedNode}
+          menu={shapeMenu}
+          containerRef={wrapperRef}
+          onOpen={setShapeMenu}
+          onClose={closeShapeMenu}
+        />
+      )}
     </div>
   )
 }

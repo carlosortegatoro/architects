@@ -11,7 +11,7 @@ const MIN_HEIGHT = 80
 
 const ANNOTATION_COLORS = ['#334155', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#9333ea', '#0891b2']
 
-export function AnnotationNode({ id, data, selected }: NodeProps<AnnotationNodeType>) {
+export function AnnotationNode({ id, data, selected, width, height }: NodeProps<AnnotationNodeType>) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [editingBody, setEditingBody] = useState(false)
   const updateNodeData = useDiagramStore((s) => s.updateNodeData)
@@ -24,7 +24,7 @@ export function AnnotationNode({ id, data, selected }: NodeProps<AnnotationNodeT
 
   useEffect(() => {
     updateNodeInternals(id)
-  }, [id, counts.top, counts.right, counts.bottom, counts.left, updateNodeInternals])
+  }, [id, width, height, counts.top, counts.right, counts.bottom, counts.left, updateNodeInternals])
 
   function setSideCount(side: keyof HandleCounts, value: number) {
     updateNodeData(id, { handleCounts: { ...counts, [side]: value } })

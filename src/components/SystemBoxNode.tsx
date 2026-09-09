@@ -14,7 +14,7 @@ const DEFAULT_WIDTH = 220
 const DEFAULT_HEIGHT = 110
 const COMPACT_SIZE = 90
 
-export function SystemBoxNode({ id, data, selected }: NodeProps<SystemBoxNodeType>) {
+export function SystemBoxNode({ id, data, selected, width, height }: NodeProps<SystemBoxNodeType>) {
   const [editing, setEditing] = useState(false)
   const updateNodeData = useDiagramStore((s) => s.updateNodeData)
   const removeNode = useDiagramStore((s) => s.removeNode)
@@ -28,13 +28,13 @@ export function SystemBoxNode({ id, data, selected }: NodeProps<SystemBoxNodeTyp
 
   useEffect(() => {
     updateNodeInternals(id)
-  }, [id, counts.top, counts.right, counts.bottom, counts.left, updateNodeInternals])
+  }, [id, data.displayMode, width, height, counts.top, counts.right, counts.bottom, counts.left, updateNodeInternals])
 
   function setSideCount(side: keyof HandleCounts, value: number) {
     updateNodeData(id, { handleCounts: { ...counts, [side]: value } })
   }
 
-  const isCompact = presenting && !data.label.trim()
+  const isCompact = presenting && !data.label.trim() && (data.displayMode ?? 'full') === 'full'
   const isLogoOnly = data.displayMode === 'logoOnly'
   const isTextOnly = data.displayMode === 'textOnly'
   const isFocused = editing || focusedNodeId === id
@@ -46,7 +46,7 @@ export function SystemBoxNode({ id, data, selected }: NodeProps<SystemBoxNodeTyp
       className={`system-box${selected ? ' system-box--selected' : ''}${(isCompact || isLogoOnly) ? ' system-box--compact' : ''}${isFocused ? ' system-box--focused' : ''}${isHighlighted ? ' system-box--highlighted' : ''}${isDimmed ? ' system-box--dimmed' : ''}`}
       style={{
         borderColor: data.color,
-        ...(isCompact || isLogoOnly ? { width: COMPACT_SIZE, height: COMPACT_SIZE } : {}),
+        ...(isCompact ? { width: COMPACT_SIZE, height: COMPACT_SIZE } : {}),
       }}
     >
       <NodeResizer
