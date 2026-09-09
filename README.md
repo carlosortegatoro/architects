@@ -81,7 +81,7 @@ Ver [`src/types.ts`](src/types.ts). Resumen:
 ### Cajas de sistema (`SystemBoxNode`)
 - Doble click sobre el texto → edición inline del nombre.
 - Círculo a la izquierda → subir una imagen/logo (PNG/SVG/JPG), se guarda como base64 en `data.icon`.
-- Fila de swatches → cambiar el color de la caja (afecta borde y línea inferior).
+- Selector desplegable con el color actual → cambiar el color de la caja (afecta borde y línea inferior).
 - Handles de conexión en los 4 lados (arrastrar desde el borde para crear una conexión).
 - Botón "✕" → eliminar la caja (y sus conexiones asociadas).
 
@@ -106,6 +106,12 @@ Clic derecho sobre una caja, o selección de una sola caja → botón `Change sh
 El cambio conserva textos, logo (aunque no sea visible), color, posición, grupo y conexiones. Aplica el tamaño inicial de la forma elegida y amplía los grupos contenedores si hace falta. `Ctrl/Cmd+Z` restaura la forma, contenido y tamaño anteriores en un solo paso; `Ctrl/Cmd+Shift+Z` rehace la conversión. Elegir la forma actual o cerrar el menú no añade cambios al historial.
 
 Para probarlo con `npm run dev`, utiliza un diagrama de prueba: conecta una caja, personaliza su contenido y tamaño, cambia entre las cinco formas y comprueba deshacer/rehacer. Repite dentro de un grupo y exporta/importa el JSON para comprobar que el contenido oculto se conserva. El menú admite flechas y Enter/Espacio; Escape o clic fuera lo cierran.
+
+### Selector de color compacto
+
+Todas las cajas (sistema completo, solo logo, solo texto, informativa, anotación y grupo) comparten un desplegable que muestra únicamente el color actual y una flecha. Conserva los colores personalizados ya guardados y utiliza el historial y la persistencia habituales. Abrir el selector o elegir el color actual no modifica el diagrama.
+
+En `Logo only`, el logo ocupa el espacio interior disponible, sin recorte circular. El selector de color y el botón de borrar aparecen en una barra exterior al seleccionar la caja, pasar el cursor o darle foco con el teclado. Los controles se ocultan en presentación. En cajas informativas y anotaciones, el selector está en la cabecera para liberar espacio para la descripción.
 
 ### Casos de uso (`UseCaseLegend`)
 - Botón "+ Nuevo" → crea un caso de uso con color/nombre por defecto.

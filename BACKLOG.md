@@ -12,6 +12,14 @@ Ordenadas de más fácil a más compleja de desarrollar.
 
 `SystemNodeData.displayMode?: 'full' | 'logoOnly' | 'textOnly'` en `types.ts`, con fallback a `'full'` cuando no está presente (mismo patrón que `showEdgeLabels`). `SystemBoxNode.tsx` renderiza condicionalmente logo/texto según `data.displayMode`.
 
+## ✅ Selector de color compacto y logo ampliado — implementado y aprobado
+
+Desplegable compartido con indicador del color actual en todas las cajas, incluidos grupos, en lugar de la fila de colores. Mantiene los colores personalizados existentes y las actualizaciones habituales del diagrama (persistencia y deshacer/rehacer).
+
+En `Logo only`, el logo aprovecha el espacio interior sin recorte circular; color y borrado pasan a una barra exterior visible al seleccionar, pasar el cursor o usar el foco del teclado. Las cajas informativas y anotaciones incorporan el selector en la cabecera y eliminan el pie de colores. No se muestran controles en presentación.
+
+Cambio aprobado por Carlos para commit y push. Compilación y 17 pruebas correctas; sin despliegue manual solicitado.
+
 ## ✅ Cambiar la forma de una caja existente — implementado y validado localmente
 
 Selector compartido mediante clic derecho sobre una caja o el botón `Change shape` al seleccionar un solo nodo. Permite convertir entre caja completa, solo logo, solo texto, caja informativa y anotación; los grupos quedan excluidos como origen y destino.
@@ -104,7 +112,7 @@ Investigación profunda completada (2026-08-05) contra la documentación oficial
 
 ## ✅ Headline + texto explicativo — implementado
 
-Nodo `annotation` independiente (`AnnotationNode.tsx`) — no se dio uso al campo `SystemNodeData.description` (sigue sin usar). Título editable por doble-click y cuerpo aparte (textarea, Enter inserta salto de línea en vez de cerrar), swatches de color y tamaño ajustable vía `NodeResizer`. Participa en `fitGroupToChildren` igual que cualquier otro nodo. Inicialmente era solo informativo; ahora tiene handles configurables en los cuatro lados para poder conectarse con el resto de tipos de nodo. Sigue sin tener una tool MCP de creación propia; desde MCP se usa `create_info_card` para contenido explicativo estructurado.
+Nodo `annotation` independiente (`AnnotationNode.tsx`) — no se dio uso al campo `SystemNodeData.description` (sigue sin usar). Título editable por doble-click y cuerpo aparte (textarea, Enter inserta salto de línea en vez de cerrar), selector de color y tamaño ajustable vía `NodeResizer`. Participa en `fitGroupToChildren` igual que cualquier otro nodo. Inicialmente era solo informativo; ahora tiene handles configurables en los cuatro lados para poder conectarse con el resto de tipos de nodo. Sigue sin tener una tool MCP de creación propia; desde MCP se usa `create_info_card` para contenido explicativo estructurado.
 
 ## ✅ Acción de borrar por MCP — implementado
 

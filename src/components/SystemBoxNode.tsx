@@ -3,12 +3,11 @@ import { Handle, NodeResizer, useUpdateNodeInternals, type Node, type NodeProps 
 import type { HandleCounts, SystemNodeData } from '../types'
 import { useDiagramStore } from '../store/diagramStore'
 import { IconPicker } from './IconPicker'
+import { NodeColorPicker } from './NodeColorPicker'
 import { resolveIconSrc } from '../config/presetLogos'
 import { buildHandles, DEFAULT_HANDLE_COUNTS, SideStepper } from './nodeHandles'
 
 type SystemBoxNodeType = Node<SystemNodeData>
-
-const BOX_COLORS = ['#334155', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#9333ea', '#0891b2']
 
 const DEFAULT_WIDTH = 220
 const DEFAULT_HEIGHT = 110
@@ -110,15 +109,7 @@ export function SystemBoxNode({ id, data, selected, width, height }: NodeProps<S
 
       {!presenting && (
         <div className="system-box__actions nodrag">
-          {BOX_COLORS.map((color) => (
-            <button
-              key={color}
-              className="system-box__swatch"
-              style={{ background: color }}
-              onClick={() => updateNodeData(id, { color })}
-              title="Change color"
-            />
-          ))}
+          <NodeColorPicker color={data.color} onChange={(color) => updateNodeData(id, { color })} />
           <button className="system-box__delete nodrag" onClick={() => removeNode(id)} title="Delete">
             ✕
           </button>

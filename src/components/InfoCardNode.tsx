@@ -4,13 +4,13 @@ import type { HandleCounts, InfoCardNodeData } from '../types'
 import { resolveIconSrc } from '../config/presetLogos'
 import { useDiagramStore } from '../store/diagramStore'
 import { IconPicker } from './IconPicker'
+import { NodeColorPicker } from './NodeColorPicker'
 import { buildHandles, DEFAULT_HANDLE_COUNTS, SideStepper } from './nodeHandles'
 
 type InfoCardNodeType = Node<InfoCardNodeData>
 
 const MIN_WIDTH = 240
 const MIN_HEIGHT = 140
-const CARD_COLORS = ['#334155', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#9333ea', '#0891b2']
 
 export function InfoCardNode({ id, data, selected, width, height }: NodeProps<InfoCardNodeType>) {
   const [editingHeader, setEditingHeader] = useState(false)
@@ -89,9 +89,12 @@ export function InfoCardNode({ id, data, selected, width, height }: NodeProps<In
         </div>
 
         {!presenting && (
-          <button className="info-card__delete nodrag" type="button" onClick={() => removeNode(id)} title="Delete information card">
-            ✕
-          </button>
+          <div className="node-header-actions nodrag">
+            <NodeColorPicker color={data.color} onChange={(color) => updateNodeData(id, { color })} />
+            <button className="info-card__delete nodrag" type="button" onClick={() => removeNode(id)} title="Delete information card">
+              ✕
+            </button>
+          </div>
         )}
       </div>
 
@@ -113,21 +116,6 @@ export function InfoCardNode({ id, data, selected, width, height }: NodeProps<In
           <div className="info-card__description-text">{data.description || 'Add a description'}</div>
         )}
       </div>
-
-      {!presenting && (
-        <div className="info-card__actions nodrag">
-          {CARD_COLORS.map((color) => (
-            <button
-              key={color}
-              type="button"
-              className="info-card__swatch"
-              style={{ background: color }}
-              onClick={() => updateNodeData(id, { color })}
-              title="Change color"
-            />
-          ))}
-        </div>
-      )}
     </div>
   )
 }

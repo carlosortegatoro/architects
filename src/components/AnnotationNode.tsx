@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react'
 import { Handle, NodeResizer, useUpdateNodeInternals, type Node, type NodeProps } from '@xyflow/react'
 import type { AnnotationNodeData, HandleCounts } from '../types'
 import { useDiagramStore } from '../store/diagramStore'
+import { NodeColorPicker } from './NodeColorPicker'
 import { buildHandles, DEFAULT_HANDLE_COUNTS, SideStepper } from './nodeHandles'
 
 type AnnotationNodeType = Node<AnnotationNodeData>
 
 const MIN_WIDTH = 160
 const MIN_HEIGHT = 80
-
-const ANNOTATION_COLORS = ['#334155', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#9333ea', '#0891b2']
 
 export function AnnotationNode({ id, data, selected, width, height }: NodeProps<AnnotationNodeType>) {
   const [editingTitle, setEditingTitle] = useState(false)
@@ -66,9 +65,12 @@ export function AnnotationNode({ id, data, selected, width, height }: NodeProps<
           <span className="annotation-box__title">{data.title}</span>
         )}
         {!presenting && (
-          <button className="annotation-box__delete nodrag" onClick={() => removeNode(id)} title="Delete annotation">
-            ✕
-          </button>
+          <div className="node-header-actions nodrag">
+            <NodeColorPicker color={data.color} onChange={(color) => updateNodeData(id, { color })} />
+            <button className="annotation-box__delete nodrag" onClick={() => removeNode(id)} title="Delete annotation">
+              ✕
+            </button>
+          </div>
         )}
       </div>
 
@@ -92,20 +94,6 @@ export function AnnotationNode({ id, data, selected, width, height }: NodeProps<
           <span className="annotation-box__body-placeholder">Add a description…</span>
         )}
       </div>
-
-      {!presenting && (
-        <div className="annotation-box__actions nodrag">
-          {ANNOTATION_COLORS.map((color) => (
-            <button
-              key={color}
-              className="annotation-box__swatch"
-              style={{ background: color }}
-              onClick={() => updateNodeData(id, { color })}
-              title="Change color"
-            />
-          ))}
-        </div>
-      )}
     </div>
   )
 }

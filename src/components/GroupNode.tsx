@@ -3,6 +3,7 @@ import { Handle, NodeResizer, useUpdateNodeInternals, type Node, type NodeProps 
 import type { GroupNodeData, HandleCounts } from '../types'
 import { useDiagramStore } from '../store/diagramStore'
 import { IconPicker } from './IconPicker'
+import { NodeColorPicker } from './NodeColorPicker'
 import { resolveIconSrc } from '../config/presetLogos'
 import { buildHandles, DEFAULT_HANDLE_COUNTS, SideStepper } from './nodeHandles'
 
@@ -92,9 +93,12 @@ export function GroupNode({ id, data, selected }: NodeProps<GroupNodeType>) {
           <span className="group-box__label">{data.label}</span>
         )}
         {!presenting && (
-          <button className="group-box__delete nodrag" onClick={() => removeNode(id)} title="Delete group">
-            ✕
-          </button>
+          <div className="node-header-actions nodrag">
+            <NodeColorPicker color={data.color} onChange={(color) => updateNodeData(id, { color })} />
+            <button className="group-box__delete nodrag" onClick={() => removeNode(id)} title="Delete group">
+              ✕
+            </button>
+          </div>
         )}
       </div>
     </div>
