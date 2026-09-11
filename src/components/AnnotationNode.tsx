@@ -46,11 +46,11 @@ export function AnnotationNode({ id, data, selected, width, height }: NodeProps<
         <Handle key={handle.id} type="source" position={handle.position} id={handle.id} style={handle.style} />
       ))}
 
-      <div className="annotation-box__header nodrag" onDoubleClick={() => setEditingTitle(true)}>
+      <div className="annotation-box__header" onDoubleClick={() => setEditingTitle(true)}>
         {editingTitle ? (
           <input
             autoFocus
-            className="annotation-box__input"
+            className="annotation-box__input nodrag"
             defaultValue={data.title}
             onBlur={(e) => {
               updateNodeData(id, { title: e.target.value || 'New note' })
@@ -74,11 +74,11 @@ export function AnnotationNode({ id, data, selected, width, height }: NodeProps<
         )}
       </div>
 
-      <div className="annotation-box__body nodrag" onDoubleClick={() => setEditingBody(true)}>
+      <div className="annotation-box__body" onDoubleClick={() => setEditingBody(true)}>
         {editingBody ? (
           <textarea
             autoFocus
-            className="annotation-box__textarea"
+            className="annotation-box__textarea nodrag"
             defaultValue={data.body ?? ''}
             onBlur={(e) => {
               updateNodeData(id, { body: e.target.value })
