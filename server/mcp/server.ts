@@ -4,22 +4,19 @@ import { z } from 'zod'
 import type { DiagramFile, InfoCardNodeData, ParticleShape, ParticleSpeed, UseCase } from '../../src/types.js'
 import { signToken } from '../lib/jwt.js'
 import { createDiagramsApi } from './apiClient.js'
+import { registerExtendedTools } from './extendedTools.js'
+import { documentNodes, updateNode, validateConnection, validateParent } from './editing.js'
+import { handlesSchema, pointSchema, validateDiagram } from '../lib/diagramSchema.js'
+import { NODE_SHAPE_SIZES } from '../../src/utils/nodeShape.js'
+import { absolutePositionOf as absolutePositionOfNode } from '../../src/utils/nodeGrouping.js'
 
 const DEFAULT_NODE_COLOR = '#334155'
-const DEFAULT_NODE_WIDTH = 220
-const DEFAULT_NODE_HEIGHT = 110
 const DEFAULT_GROUP_COLOR = '#475569'
 const GROUP_WIDTH = 400
 const GROUP_HEIGHT = 300
-const GROUP_MIN_WIDTH = 240
-const GROUP_MIN_HEIGHT = 160
-const GROUP_CHILD_PADDING = 40
-const GROUP_HEADER_PADDING = 60
 const DEFAULT_INFO_CARD_COLOR = '#2563eb'
 const INFO_CARD_WIDTH = 300
 const INFO_CARD_HEIGHT = 180
-const ANNOTATION_WIDTH = 260
-const ANNOTATION_HEIGHT = 140
 
 const PARTICLE_SPEEDS: ParticleSpeed[] = ['real-time', 'near-real-time', 'batch', 'zero-copy', 'none']
 const PARTICLE_SHAPES: ParticleShape[] = ['circle', 'cut-corner-rect']
@@ -28,119 +25,10 @@ function nextId(prefix: string) {
   return `${prefix}-${randomUUID()}`
 }
 
-function defaultNodeWidth(type?: string): number {
-  if (type === 'group') return GROUP_WIDTH
-  if (type === 'annotation') return ANNOTATION_WIDTH
-  if (type === 'infoCard') return INFO_CARD_WIDTH
-  return DEFAULT_NODE_WIDTH
-}
-
-function defaultNodeHeight(type?: string): number {
-  if (type === 'group') return GROUP_HEIGHT
-  if (type === 'annotation') return ANNOTATION_HEIGHT
-  if (type === 'infoCard') return INFO_CARD_HEIGHT
-  return DEFAULT_NODE_HEIGHT
-}
-
-function absolutePositionOfNode(
-  node: DiagramFile['nodes'][number],
-  byId: Map<string, DiagramFile['nodes'][number]>,
-): { x: number; y: number } {
-  if (!node.parentId) return node.position
-  const parent = byId.get(node.parentId)
-  if (!parent) return node.position
-  const parentAbs = absolutePositionOfNode(parent, byId)
-  return { x: parentAbs.x + node.position.x, y: parentAbs.y + node.position.y }
-}
-
-function isInsideBounds(
-  node: { x: number; y: number; width: number; height: number },
-  bounds: { x: number; y: number; width: number; height: number },
-) {
-  return (
-    node.x >= bounds.x &&
-    node.y >= bounds.y &&
-    node.x + node.width <= bounds.x + bounds.width &&
-    node.y + node.height <= bounds.y + bounds.height
-  )
-}
-
-function fitGroupToChildren(
-  children: Array<{ position: { x: number; y: number }; width?: number; height?: number; type?: string }>,
-): { width: number; height: number } | null {
-  if (children.length === 0) return null
-
-  let maxX = -Infinity
-  let maxY = -Infinity
-
-  for (const child of children) {
-    const width = child.width ?? defaultNodeWidth(child.type)
-    const height = child.height ?? defaultNodeHeight(child.type)
-    maxX = Math.max(maxX, child.position.x + width)
-    maxY = Math.max(maxY, child.position.y + height)
-  }
-
-  return {
-    width: Math.max(GROUP_MIN_WIDTH, maxX + GROUP_CHILD_PADDING),
-    height: Math.max(GROUP_MIN_HEIGHT, maxY + GROUP_HEADER_PADDING),
-  }
-}
-
-function isDescendantOfNode(
-  candidateId: string,
-  ancestorId: string,
-  byId: Map<string, DiagramFile['nodes'][number]>,
-): boolean {
-  let current = byId.get(candidateId)
-  while (current?.parentId) {
-    if (current.parentId === ancestorId) return true
-    current = byId.get(current.parentId)
-  }
-  return false
-}
-
-function attachToParent(
-  content: DiagramFile,
-  newNode: DiagramFile['nodes'][number],
-  parentId: string | undefined,
-): void {
-  if (parentId === undefined) return
-  const parent = content.nodes.find((n) => n.id === parentId)
-  if (!parent) throw new Error(`Unknown parentId: ${parentId}`)
-  if (parent.type !== 'group') throw new Error(`parentId ${parentId} is not a group node`)
-  if (newNode.type === 'group' && isDescendantOfNode(parentId, newNode.id, new Map(content.nodes.map((n) => [n.id, n])))) {
-    throw new Error(`parentId ${parentId} is a descendant of ${newNode.id} — this would create a cycle`)
-  }
-
-  const byId = new Map(content.nodes.map((n) => [n.id, n]))
-  const parentAbs = absolutePositionOfNode(parent, byId)
-  const parentWidth = parent.width ?? GROUP_WIDTH
-  const parentHeight = parent.height ?? GROUP_HEIGHT
-
-  const children = content.nodes
-    .filter((n) => n.id !== parent.id)
-    .map((n) => {
-      const abs = absolutePositionOfNode(n, byId)
-      const width = n.width ?? defaultNodeWidth(n.type)
-      const height = n.height ?? defaultNodeHeight(n.type)
-      return { node: n, abs, width, height }
-    })
-    .filter(
-      ({ node, abs, width, height }) =>
-        node.parentId === parent.id ||
-        isInsideBounds({ ...abs, width, height }, { ...parentAbs, width: parentWidth, height: parentHeight }),
-    )
-    .map(({ abs, width, height }) => ({
-      position: { x: abs.x - parentAbs.x, y: abs.y - parentAbs.y },
-      width,
-      height,
-    }))
-
-  const fitted = fitGroupToChildren(children)
-  if (fitted) {
-    parent.width = fitted.width
-    parent.height = fitted.height
-  }
+function attachToParent(content: DiagramFile, node: DiagramFile['nodes'][number], parentId?: string) {
+  validateParent(content, node.id, parentId)
+  // Match the UI: creating/attaching a child never implicitly resizes its group.
+  content.nodes = documentNodes(content.nodes)
 }
 
 export function buildMcpServer(user: { userId: string; email: string; authVersion: number }) {
@@ -150,7 +38,9 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
   async function mutateDiagram(diagramId: string, mutate: (content: DiagramFile) => void) {
     const diagram = await diagramsApi.get(diagramId)
     mutate(diagram.content)
-    return diagramsApi.update(diagramId, { content: diagram.content })
+    diagram.content.nodes = documentNodes(diagram.content.nodes)
+    validateDiagram(diagram.content)
+    return diagramsApi.update(diagramId, { content: diagram.content, expectedRevision: diagram.revision, recordHistory: true })
   }
 
   const server = new McpServer({ name: 'architectures-mcp-server', version: '0.1.0' })
@@ -160,7 +50,7 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
     {
       title: 'List diagrams',
       description:
-        'List all diagrams owned by the authenticated user, each with a content summary (system/group/information-card/connection counts, use case names, and top-level node names). ' +
+        'List all diagrams owned by the authenticated user, each with a content summary (system/group/information-card/annotation/connection counts, scenario and use case names, and top-level node names). ' +
         'Call this FIRST whenever the user asks to design a new architecture, to check whether an existing diagram already models a similar system, integration, or use case you can reuse as a reference pattern instead of starting from scratch. ' +
         'If a summary looks relevant (shares systems, use cases, or a similar shape), call get_diagram on it before creating anything new.',
       inputSchema: {},
@@ -195,7 +85,16 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
             '',
             '- Information card (create_info_card): a connectable card with a logo, header, and multiline description. Use it for a product, capability, external actor, or explanatory concept that needs visible context but is not best represented as a plain system or as a container. It can be nested in a group and connected to any other diagram node.',
             '',
-            '- Annotation: a free-form note created in the editor. Annotations are connectable, but create_info_card is preferred from MCP when the explanatory element needs a structured header, description, and logo.',
+            '- Annotation (create_annotation / update_node): a connectable free-form title/body note. Use create_info_card instead when a visible logo and structured header/description are appropriate.',
+            '',
+            '- Editing: update_node edits any existing node, moves/resizes it, changes its group (parentId:null detaches), and configures handleCounts. Its position is ABSOLUTE canvas coordinates; creation positions are RELATIVE to parentId when given. Omitting position while changing parent keeps the node fixed on the canvas. Groups never auto-resize when adding/moving children: call fit_group explicitly.',
+            '- change_node_shape converts boxes without losing IDs/connections/hidden content. align_nodes and distribute_nodes use the same geometry as the UI. Group deletion promotes direct children to the ROOT, preserving canvas positions.',
+            '- Scenarios: list_scenarios, create_scenario, update_scenario and delete_scenario manage saved selections of cases of use. They do not activate a presentation in a browser.',
+            '- Edit connections via update_connection; edit/rename cases of use by stable ID via update_use_case. Configure endpoints using sourceHandle/targetHandle (top/right/bottom/left, side-2 through side-4 as enabled).',
+            '- Documents: set_diagram_options, import_diagram (new document by default, confirmed undoable replacement when diagramId is provided), export_diagram, duplicate_diagram. delete_diagram is permanent and requires explicit confirmation and the exact current name.',
+            '- Sharing: list_share_links/create_share_link/revoke_share_link. Public links require explicit permission to share and a duration; URLs are sensitive.',
+            '- History: get_diagram_history, undo_diagram_change and redo_diagram_change work across requests for up to 50 MCP document edits. A subsequent UI edit clears MCP history; sharing and whole-diagram deletion are not undoable. Concurrent changes return an error: read the diagram again before retrying.',
+            '- Browser-only controls are not remote MCP operations: active presentation scenario, fullscreen, zoom/pan, pointer, highlights, animation pause, theme and local keyboard undo. This server edits stored documents, not a specific browser session.',
             '',
             '- Use case (set_use_case): a named *kind* of interaction (e.g. "Checkout", "Nightly sync", "Read replica traffic") with its own color/speed/shape, reused across every connection that represents that same kind of interaction. Call set_use_case once per distinct kind of interaction in the architecture, then reference its id from every relevant create_connection call. Do not create a new use case per connection if the same kind of interaction already exists — reuse it by name.',
             '',
@@ -245,7 +144,8 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
       inputSchema: { diagramId: z.string().min(1), name: z.string().trim().min(1).max(200) },
     },
     async ({ diagramId, name }) => {
-      const diagram = await diagramsApi.update(diagramId, { name })
+      const current = await diagramsApi.get(diagramId)
+      const diagram = await diagramsApi.update(diagramId, { name, expectedRevision: current.revision, recordHistory: true })
       return { content: [{ type: 'text', text: JSON.stringify(diagram, null, 2) }] }
     },
   )
@@ -257,35 +157,37 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
       description:
         'Add a new system box node to a diagram. A system represents a single, independently deployable/logical component (an app, a service, a database, a platform) — one box per component a reader would think of as "one thing". ' +
         'If the thing you are modeling is actually composed of several smaller systems that each deserve their own box (their own connections, their own use cases), do NOT model it as one system box — use create_group instead and create the sub-systems as children via parentId. ' +
-        'Pass parentId (a group node id) to nest this system inside an existing group. Returns the new node id.',
+        'Pass parentId to nest inside an existing group; position is then relative to that group, otherwise absolute. No implicit group resize; use fit_group. Returns the new node id.',
       inputSchema: {
         diagramId: z.string().min(1),
         label: z.string().trim().min(1),
         color: z.string().optional(),
-        position: z.object({ x: z.number(), y: z.number() }).optional(),
+        position: pointSchema.optional(),
+        width: z.number().finite().positive().optional(), height: z.number().finite().positive().optional(), handleCounts: handlesSchema.optional(),
         displayMode: z.enum(['full', 'logoOnly', 'textOnly']).optional(),
         parentId: z.string().optional(),
         icon: z.string().trim().min(1).optional(),
       },
     },
-    async ({ diagramId, label, color, position, displayMode, parentId, icon }) => {
+    async ({ diagramId, label, color, position, displayMode, parentId, icon, width, height, handleCounts }) => {
       const nodeId = nextId('node')
       await mutateDiagram(diagramId, (content) => {
         const node: DiagramFile['nodes'][number] = {
           id: nodeId,
           type: 'systemBox',
           position: position ?? { x: 0, y: 0 },
-          width: DEFAULT_NODE_WIDTH,
-          height: DEFAULT_NODE_HEIGHT,
+          ...NODE_SHAPE_SIZES[displayMode ?? 'full'],
           ...(parentId !== undefined ? { parentId } : {}),
           data: {
             label,
             color: color ?? DEFAULT_NODE_COLOR,
             ...(displayMode && displayMode !== 'full' ? { displayMode } : {}),
             ...(icon ? { icon } : {}),
+            ...(handleCounts ? { handleCounts } : {}),
           },
         }
         content.nodes.push(node)
+        if (width !== undefined || height !== undefined) updateNode(content, node.id, { width, height })
         attachToParent(content, node, parentId)
       })
       return { content: [{ type: 'text', text: JSON.stringify({ nodeId }, null, 2) }] }
@@ -304,12 +206,13 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
         diagramId: z.string().min(1),
         label: z.string().trim().min(1),
         color: z.string().optional(),
-        position: z.object({ x: z.number(), y: z.number() }).optional(),
+        position: pointSchema.optional(),
+        width: z.number().finite().positive().optional(), height: z.number().finite().positive().optional(), handleCounts: handlesSchema.optional(),
         parentId: z.string().optional(),
         icon: z.string().trim().min(1).optional(),
       },
     },
-    async ({ diagramId, label, color, position, parentId, icon }) => {
+    async ({ diagramId, label, color, position, parentId, icon, width, height, handleCounts }) => {
       const nodeId = nextId('node')
       await mutateDiagram(diagramId, (content) => {
         const node: DiagramFile['nodes'][number] = {
@@ -323,9 +226,11 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
             label,
             color: color ?? DEFAULT_GROUP_COLOR,
             ...(icon ? { icon } : {}),
+            ...(handleCounts ? { handleCounts } : {}),
           },
         }
         content.nodes.push(node)
+        if (width !== undefined || height !== undefined) updateNode(content, node.id, { width, height })
         attachToParent(content, node, parentId)
       })
       return { content: [{ type: 'text', text: JSON.stringify({ nodeId }, null, 2) }] }
@@ -345,12 +250,13 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
         header: z.string().trim().min(1).max(200),
         description: z.string().max(4000),
         color: z.string().optional(),
-        position: z.object({ x: z.number(), y: z.number() }).optional(),
+        position: pointSchema.optional(),
+        width: z.number().finite().positive().optional(), height: z.number().finite().positive().optional(), handleCounts: handlesSchema.optional(),
         parentId: z.string().optional(),
         icon: z.string().trim().min(1).optional(),
       },
     },
-    async ({ diagramId, header, description, color, position, parentId, icon }) => {
+    async ({ diagramId, header, description, color, position, parentId, icon, width, height, handleCounts }) => {
       const nodeId = nextId('info-card')
       await mutateDiagram(diagramId, (content) => {
         const node: DiagramFile['nodes'][number] = {
@@ -365,9 +271,11 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
             description,
             color: color ?? DEFAULT_INFO_CARD_COLOR,
             ...(icon ? { icon } : {}),
+            ...(handleCounts ? { handleCounts } : {}),
           },
         }
         content.nodes.push(node)
+        if (width !== undefined || height !== undefined) updateNode(content, node.id, { width, height })
         attachToParent(content, node, parentId)
       })
       return { content: [{ type: 'text', text: JSON.stringify({ nodeId }, null, 2) }] }
@@ -421,11 +329,13 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
         diagramId: z.string().min(1),
         sourceSystemId: z.string().min(1),
         targetSystemId: z.string().min(1),
+        sourceHandle: z.string().nullable().optional(),
+        targetHandle: z.string().nullable().optional(),
         useCaseIds: z.array(z.string()).optional(),
         label: z.string().optional(),
       },
     },
-    async ({ diagramId, sourceSystemId, targetSystemId, useCaseIds, label }) => {
+    async ({ diagramId, sourceSystemId, targetSystemId, sourceHandle, targetHandle, useCaseIds, label }) => {
       const edgeId = nextId('edge')
       await mutateDiagram(diagramId, (content) => {
         const sourceExists = content.nodes.some((n) => n.id === sourceSystemId)
@@ -435,12 +345,16 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
             `Unknown node id(s): ${[!sourceExists && sourceSystemId, !targetExists && targetSystemId].filter(Boolean).join(', ')}`,
           )
         }
-        content.edges.push({
+        const edge: DiagramFile['edges'][number] = {
           id: edgeId,
           source: sourceSystemId,
           target: targetSystemId,
+          ...(sourceHandle !== undefined ? { sourceHandle } : {}),
+          ...(targetHandle !== undefined ? { targetHandle } : {}),
           data: { useCaseIds: useCaseIds ?? [], ...(label ? { label } : {}) },
-        })
+        }
+        validateConnection(content, edge)
+        content.edges.push(edge)
       })
       return { content: [{ type: 'text', text: JSON.stringify({ edgeId }, null, 2) }] }
     },
@@ -506,8 +420,7 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
       title: 'Delete node',
       description:
         'Delete any node from a diagram. Connections to/from it are deleted too. ' +
-        "If it's a group with children, the children are NOT deleted: they are promoted to the group's " +
-        "parent level (or to the diagram root), keeping their absolute canvas position — matches the editor UI.",
+        "If it's a group, direct children are promoted to the diagram ROOT (including for nested groups), keeping absolute canvas positions and their own subtrees. Matches the editor UI; undo_diagram_change can restore the deletion.",
       inputSchema: { diagramId: z.string().min(1), nodeId: z.string().min(1) },
     },
     async ({ diagramId, nodeId }) => {
@@ -571,5 +484,6 @@ export function buildMcpServer(user: { userId: string; email: string; authVersio
     },
   )
 
+  registerExtendedTools(server, diagramsApi, mutateDiagram)
   return server
 }

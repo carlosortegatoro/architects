@@ -31,12 +31,15 @@ export type DiagramSummary = {
   name: string
   created_at: string
   updated_at: string
+  revision: number
 }
 
 export type DiagramContentSummary = {
   systemCount: number
   groupCount: number
   infoCardCount: number
+  annotationCount: number
+  scenarioNames: string[]
   connectionCount: number
   useCaseNames: string[]
   topLevelSystemNames: string[]
@@ -89,7 +92,7 @@ export const diagramsApi = {
   list: () => request<DiagramListEntry[]>('/diagrams'),
   create: (name: string) => request<DiagramSummary>('/diagrams', { method: 'POST', body: JSON.stringify({ name }) }),
   get: (id: string) => request<DiagramRecord>(`/diagrams/${id}`),
-  update: (id: string, patch: { name?: string; content?: DiagramFile }) =>
+  update: (id: string, patch: { name?: string; content?: DiagramFile; expectedRevision?: number }) =>
     request<DiagramSummary>(`/diagrams/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
   duplicate: (id: string) => request<DiagramSummary>(`/diagrams/${id}/duplicate`, { method: 'POST' }),
   remove: (id: string) => request<void>(`/diagrams/${id}`, { method: 'DELETE' }),

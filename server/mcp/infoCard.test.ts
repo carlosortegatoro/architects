@@ -109,8 +109,8 @@ test('MCP creates, updates, connects, and deletes information cards', async (t) 
   assert.deepEqual(card?.position, { x: 80, y: 70 })
   assert.equal((card?.data as InfoCardNodeData).header, 'Customer identity')
   assert.equal((card?.data as InfoCardNodeData).icon, 'preset:salesforce')
-  assert.equal(content.nodes.find((node) => node.id === 'group-1')?.width, 420)
-  assert.equal(content.nodes.find((node) => node.id === 'group-1')?.height, 310)
+  assert.equal(content.nodes.find((node) => node.id === 'group-1')?.width, 400)
+  assert.equal(content.nodes.find((node) => node.id === 'group-1')?.height, 300)
 
   await client.callTool({
     name: 'update_info_card',

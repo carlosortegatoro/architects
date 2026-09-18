@@ -21,8 +21,10 @@ import type {
   SystemNodeData,
   UseCase,
 } from '../types'
-import { diagramsApi } from '../api/client'
-import { convertNodeShape, NODE_SHAPE_SIZES } from '../utils/nodeShape'
+import { ApiError, diagramsApi } from '../api/client'
+import { NODE_SHAPE_SIZES } from '../utils/nodeShape'
+import { changeNodeShapeLayout, layoutNodes } from '../utils/nodeLayout'
+import { absolutePositionOf, findContainingGroup, fitGroupContents, resolveGroupDrop, sortNodesByHierarchy } from '../utils/nodeGrouping'
 
 let idCounter = 0
 function nextId(prefix: string) {
@@ -37,93 +39,10 @@ export type DistributeMode = 'horizontal' | 'vertical' | 'grid'
 
 const GROUP_WIDTH = 400
 const GROUP_HEIGHT = 300
-const GROUP_MIN_WIDTH = 240
-const GROUP_MIN_HEIGHT = 160
-const GROUP_CHILD_PADDING = 40
-const GROUP_HEADER_PADDING = 60
 const ANNOTATION_WIDTH = 260
 const ANNOTATION_HEIGHT = 140
 const INFO_CARD_WIDTH = 300
 const INFO_CARD_HEIGHT = 180
-
-function defaultNodeWidth(type?: string): number {
-  if (type === 'group') return GROUP_WIDTH
-  if (type === 'annotation') return ANNOTATION_WIDTH
-  if (type === 'infoCard') return INFO_CARD_WIDTH
-  return 220
-}
-
-function defaultNodeHeight(type?: string): number {
-  if (type === 'group') return GROUP_HEIGHT
-  if (type === 'annotation') return ANNOTATION_HEIGHT
-  if (type === 'infoCard') return INFO_CARD_HEIGHT
-  return 110
-}
-
-function isInsideBounds(
-  node: { x: number; y: number; width: number; height: number },
-  bounds: { x: number; y: number; width: number; height: number },
-) {
-  return (
-    node.x >= bounds.x &&
-    node.y >= bounds.y &&
-    node.x + node.width <= bounds.x + bounds.width &&
-    node.y + node.height <= bounds.y + bounds.height
-  )
-}
-
-function fitGroupToChildren(
-  children: Array<{ position: { x: number; y: number }; width?: number; height?: number; type?: string }>,
-): { width: number; height: number } | null {
-  if (children.length === 0) return null
-
-  let maxX = -Infinity
-  let maxY = -Infinity
-
-  for (const child of children) {
-    const width = child.width ?? defaultNodeWidth(child.type)
-    const height = child.height ?? defaultNodeHeight(child.type)
-    maxX = Math.max(maxX, child.position.x + width)
-    maxY = Math.max(maxY, child.position.y + height)
-  }
-
-  return {
-    width: Math.max(GROUP_MIN_WIDTH, maxX + GROUP_CHILD_PADDING),
-    height: Math.max(GROUP_MIN_HEIGHT, maxY + GROUP_HEADER_PADDING),
-  }
-}
-
-function absolutePositionOf(node: SystemNode, byId: Map<string, SystemNode>): { x: number; y: number } {
-  if (!node.parentId) return node.position
-  const parent = byId.get(node.parentId)
-  if (!parent) return node.position
-  const parentAbs = absolutePositionOf(parent, byId)
-  return { x: parentAbs.x + node.position.x, y: parentAbs.y + node.position.y }
-}
-
-function isDescendantOf(candidateId: string, ancestorId: string, byId: Map<string, SystemNode>): boolean {
-  let current = byId.get(candidateId)
-  while (current?.parentId) {
-    if (current.parentId === ancestorId) return true
-    current = byId.get(current.parentId)
-  }
-  return false
-}
-
-function depthOf(
-  node: DiagramFile['nodes'][number],
-  byId: Map<string, DiagramFile['nodes'][number]>,
-): number {
-  let depth = 0
-  let current = node
-  while (current.parentId) {
-    const parent = byId.get(current.parentId)
-    if (!parent) break
-    depth += 1
-    current = parent
-  }
-  return depth
-}
 
 type Theme = 'dark' | 'light'
 
@@ -170,6 +89,7 @@ type DiagramState = {
   isSaving: boolean
   loadError: string | null
   lastKnownUpdatedAt: string | null
+  lastKnownRevision: number | null
   remoteChangeAvailable: boolean
 
   openDiagram: (id: string) => Promise<void>
@@ -185,6 +105,7 @@ type DiagramState = {
   setFocusedNode: (id: string | null) => void
   setDropTargetGroup: (id: string | null) => void
   findGroupAt: (nodeId: string, position: { x: number; y: number }) => string | null
+  fitGroupToContent: (id: string) => void
   toggleEdgeLabels: () => void
   toggleFloatingEdges: () => void
 
@@ -321,56 +242,64 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
   isSaving: false,
   loadError: null,
   lastKnownUpdatedAt: null,
+  lastKnownRevision: null,
   remoteChangeAvailable: false,
 
   openDiagram: async (id) => {
-    set({ isLoading: true, loadError: null, diagramId: id })
+    set({ isLoading: true, isSaving: false, lastKnownRevision: null, loadError: null, diagramId: id })
     try {
       const diagram = await diagramsApi.get(id)
+      if (get().diagramId !== id) return
       get().loadDiagram(diagram.content)
       set({
         diagramName: diagram.name,
         isLoading: false,
         isDirty: false,
         lastKnownUpdatedAt: diagram.updated_at,
+        lastKnownRevision: diagram.revision,
         remoteChangeAvailable: false,
       })
     } catch (err) {
+      if (get().diagramId !== id) return
       set({ isLoading: false, loadError: err instanceof Error ? err.message : 'Could not load diagram' })
     }
   },
 
   saveDiagram: async () => {
-    const { diagramId, isDirty, toDiagramFile } = get()
-    if (!diagramId || !isDirty) return
+    const { diagramId, diagramName, isDirty, isSaving, lastKnownRevision, remoteChangeAvailable, toDiagramFile } = get()
+    if (!diagramId || !isDirty || isSaving || remoteChangeAvailable || lastKnownRevision === null) return
+    const content = toDiagramFile()
+    const serialized = JSON.stringify(content)
     set({ isSaving: true })
     try {
-      const diagram = await diagramsApi.update(diagramId, { content: toDiagramFile() })
-      set({ isSaving: false, isDirty: false, lastKnownUpdatedAt: diagram.updated_at, remoteChangeAvailable: false })
-    } catch {
-      set({ isSaving: false })
+      const diagram = await diagramsApi.update(diagramId, { name: diagramName, content, expectedRevision: lastKnownRevision })
+      if (get().diagramId !== diagramId) return
+      // Edits made during the request must remain dirty for the next autosave.
+      const changedDuringSave = get().diagramName !== diagramName || JSON.stringify(get().toDiagramFile()) !== serialized
+      set({ isSaving: false, isDirty: changedDuringSave, lastKnownUpdatedAt: diagram.updated_at, lastKnownRevision: diagram.revision, remoteChangeAvailable: false })
+    } catch (error) {
+      if (get().diagramId !== diagramId) return
+      set({ isSaving: false, ...(error instanceof ApiError && error.status === 409 ? { remoteChangeAvailable: true } : {}) })
     }
   },
 
   renameDiagram: async (name) => {
-    const { diagramId } = get()
-    set({ diagramName: name })
-    if (!diagramId) return
-    await diagramsApi.update(diagramId, { name })
+    set({ diagramName: name, isDirty: true })
+    await get().saveDiagram()
   },
 
   closeDiagram: () => {
-    set({ diagramId: null, diagramName: '', isDirty: false, loadError: null, lastKnownUpdatedAt: null, remoteChangeAvailable: false })
+    set({ diagramId: null, diagramName: '', isDirty: false, isSaving: false, loadError: null, lastKnownUpdatedAt: null, lastKnownRevision: null, remoteChangeAvailable: false })
     get().clearDiagram()
   },
 
   checkRemoteVersion: async () => {
-    const { diagramId, lastKnownUpdatedAt, isDirty } = get()
-    if (!diagramId || !lastKnownUpdatedAt) return
+    const { diagramId, lastKnownUpdatedAt } = get()
+    if (!diagramId || !lastKnownUpdatedAt || get().isSaving) return
     try {
       const { updated_at } = await diagramsApi.getVersion(diagramId)
-      if (updated_at === lastKnownUpdatedAt) return
-      if (isDirty) {
+      if (get().diagramId !== diagramId || get().isSaving || get().lastKnownUpdatedAt !== lastKnownUpdatedAt || updated_at === lastKnownUpdatedAt) return
+      if (get().isDirty) {
         set({ remoteChangeAvailable: true })
         return
       }
@@ -392,31 +321,17 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
 
   findGroupAt: (nodeId, position) => {
     const nodes = get().nodes
-    const byId = new Map(nodes.map((n) => [n.id, n]))
-    const node = byId.get(nodeId)
-    if (!node) return null
+    const movingIds = new Set(nodes.filter((node) => node.dragging).map((node) => node.id))
+    movingIds.add(nodeId)
+    return findContainingGroup(nodes, nodeId, position, movingIds)?.id ?? null
+  },
 
-    const abs = node.parentId
-      ? {
-          x: absolutePositionOf(byId.get(node.parentId)!, byId).x + position.x,
-          y: absolutePositionOf(byId.get(node.parentId)!, byId).y + position.y,
-        }
-      : position
-    const width = node.width ?? defaultNodeWidth(node.type)
-    const height = node.height ?? defaultNodeHeight(node.type)
-
-    const containingGroup = nodes.find(
-      (g) =>
-        g.type === 'group' &&
-        g.id !== nodeId &&
-        !isDescendantOf(g.id, nodeId, byId) &&
-        isInsideBounds(
-          { ...abs, width, height },
-          { ...absolutePositionOf(g, byId), width: g.width ?? GROUP_WIDTH, height: g.height ?? GROUP_HEIGHT },
-        ),
-    )
-
-    return containingGroup?.id ?? null
+  fitGroupToContent: (id) => {
+    if (get().presenting) return
+    const nodes = fitGroupContents(get().nodes, id)
+    if (nodes === get().nodes) return
+    commit()
+    set({ nodes, isDirty: true })
   },
 
   toggleEdgeLabels: () => {
@@ -474,11 +389,18 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
       dragActive = true
     } else if (structuralChange) {
       commit()
+    } else if (isDragStop && !dragActive && changes.some((change) => {
+      if (change.type !== 'position' || !change.position) return false
+      const node = get().nodes.find((candidate) => candidate.id === change.id)
+      return node && (node.position.x !== change.position.x || node.position.y !== change.position.y)
+    })) {
+      // Keyboard moves arrive as a completed position change, without a drag-start event.
+      commit()
     }
     if (isDragStop) dragActive = false
     if (isResizeStop) resizeActive = false
 
-    const nextNodes = applyNodeChanges(changes, get().nodes) as SystemNode[]
+    const nextNodes = sortNodesByHierarchy(applyNodeChanges(changes, get().nodes) as SystemNode[])
     const finishedDragIds = new Set(
       changes
         .filter((c) => c.type === 'position' && c.dragging === false)
@@ -493,91 +415,7 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
       return
     }
 
-    const byId = new Map(nextNodes.map((n) => [n.id, n]))
-    const groups = nextNodes.filter((n) => n.type === 'group')
-
-    const resolved = nextNodes.map((node) => {
-      if (!finishedDragIds.has(node.id)) return node
-
-      const abs = absolutePositionOf(node, byId)
-      const width = node.width ?? defaultNodeWidth(node.type)
-      const height = node.height ?? defaultNodeHeight(node.type)
-
-      const containingGroup = groups.find(
-        (g) =>
-          g.id !== node.id &&
-          !isDescendantOf(g.id, node.id, byId) &&
-          isInsideBounds(
-            { ...abs, width, height },
-            { ...absolutePositionOf(g, byId), width: g.width ?? GROUP_WIDTH, height: g.height ?? GROUP_HEIGHT },
-          ),
-      )
-
-      if (containingGroup) {
-        if (node.parentId === containingGroup.id) return node
-        const groupAbs = absolutePositionOf(containingGroup, byId)
-        return {
-          ...node,
-          parentId: containingGroup.id,
-          position: { x: abs.x - groupAbs.x, y: abs.y - groupAbs.y },
-          extent: 'parent' as const,
-        }
-      }
-
-      if (node.parentId) {
-        const { parentId, extent, ...rest } = node
-        return { ...rest, position: abs }
-      }
-
-      return node
-    })
-
-    const affectedGroupIds = new Set<string>()
-    for (const id of finishedDragIds) {
-      const before = byId.get(id)
-      if (before?.parentId) affectedGroupIds.add(before.parentId)
-      const after = resolved.find((n) => n.id === id)
-      if (after?.parentId) affectedGroupIds.add(after.parentId)
-    }
-
-    const resolvedById = new Map(resolved.map((n) => [n.id, n]))
-
-    const resizedGroups = new Map<string, { width: number; height: number }>()
-    for (const groupId of affectedGroupIds) {
-      const group = resolvedById.get(groupId)
-      if (!group) continue
-      const groupAbs = absolutePositionOf(group, resolvedById)
-      const groupWidth = group.width ?? GROUP_WIDTH
-      const groupHeight = group.height ?? GROUP_HEIGHT
-
-      const childBoxes = resolved
-        .filter((n) => n.id !== groupId)
-        .map((n) => {
-          const abs = absolutePositionOf(n, resolvedById)
-          const width = n.width ?? defaultNodeWidth(n.type)
-          const height = n.height ?? defaultNodeHeight(n.type)
-          return { node: n, abs, width, height }
-        })
-        .filter(
-          ({ node, abs, width, height }) =>
-            node.parentId === groupId ||
-            isInsideBounds({ ...abs, width, height }, { ...groupAbs, width: groupWidth, height: groupHeight }),
-        )
-        .map(({ abs, width, height }) => ({
-          position: { x: abs.x - groupAbs.x, y: abs.y - groupAbs.y },
-          width,
-          height,
-        }))
-
-      const fitted = fitGroupToChildren(childBoxes)
-      if (fitted) resizedGroups.set(groupId, fitted)
-    }
-
-    const finalNodes = resizedGroups.size === 0
-      ? resolved
-      : resolved.map((node) => (resizedGroups.has(node.id) ? { ...node, ...resizedGroups.get(node.id)! } : node))
-
-    set({ nodes: finalNodes, isDirty: true, dropTargetGroupId: null })
+    set({ nodes: resolveGroupDrop(nextNodes, finishedDragIds), isDirty: true, dropTargetGroupId: null })
   },
 
   onEdgesChange: (changes) => {
@@ -670,36 +508,11 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
   },
 
   changeNodeShape: (id, shape) => {
-    const { nodes, presenting } = get()
-    const node = nodes.find((candidate) => candidate.id === id)
-    if (!node || presenting) return
-    const converted = convertNodeShape(node, shape)
-    if (converted === node) return
-
-    // One history entry for the conversion AND any necessary ancestor growth.
+    if (get().presenting) return
+    const nodes = changeNodeShapeLayout(get().nodes, id, shape)
+    if (nodes === get().nodes) return
     commit()
-    const byId = new Map(nodes.map((candidate) => [candidate.id, candidate]))
-    byId.set(id, converted)
-    let parentId = converted.parentId
-    const visited = new Set([id])
-    while (parentId && !visited.has(parentId)) {
-      visited.add(parentId)
-      const parent = byId.get(parentId)
-      if (!parent || parent.type !== 'group') break
-      const fitted = fitGroupToChildren([...byId.values()].filter((child) => child.parentId === parentId))
-      if (fitted) {
-        const width = Math.max(parent.width ?? GROUP_WIDTH, fitted.width)
-        const height = Math.max(parent.height ?? GROUP_HEIGHT, fitted.height)
-        if (width !== parent.width || height !== parent.height) {
-          byId.set(parentId, {
-            ...parent, width, height, measured: { width, height },
-            ...(parent.style ? { style: { ...parent.style, width, height } } : {}),
-          })
-        }
-      }
-      parentId = parent.parentId
-    }
-    set({ nodes: nodes.map((candidate) => byId.get(candidate.id)!), isDirty: true })
+    set({ nodes, isDirty: true })
   },
 
   updateNodeData: (id, data) => {
@@ -737,129 +550,17 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
   },
 
   alignNodes: (ids, mode) => {
-    if (ids.length < 2) return
+    const nodes = layoutNodes(get().nodes, ids, mode)
+    if (nodes === get().nodes) return
     commit()
-
-    const nodes = get().nodes
-    const byId = new Map(nodes.map((n) => [n.id, n]))
-    const targets = ids.map((id) => byId.get(id)).filter((n): n is SystemNode => n !== undefined)
-    if (targets.length < 2) return
-
-    const boundsOf = (n: SystemNode) => {
-      const abs = absolutePositionOf(n, byId)
-      const width = n.width ?? defaultNodeWidth(n.type)
-      const height = n.height ?? defaultNodeHeight(n.type)
-      return { ...abs, width, height }
-    }
-
-    const boundsById = new Map(targets.map((n) => [n.id, boundsOf(n)]))
-    const minX = Math.min(...targets.map((n) => boundsById.get(n.id)!.x))
-    const maxX = Math.max(...targets.map((n) => { const b = boundsById.get(n.id)!; return b.x + b.width }))
-    const minY = Math.min(...targets.map((n) => boundsById.get(n.id)!.y))
-    const maxY = Math.max(...targets.map((n) => { const b = boundsById.get(n.id)!; return b.y + b.height }))
-
-    const targetIds = new Set(ids)
-    const resolved = nodes.map((node) => {
-      if (!targetIds.has(node.id)) return node
-      const bounds = boundsById.get(node.id)!
-      let abs = { x: bounds.x, y: bounds.y }
-      switch (mode) {
-        case 'left': abs = { ...abs, x: minX }; break
-        case 'hcenter': abs = { ...abs, x: (minX + maxX) / 2 - bounds.width / 2 }; break
-        case 'right': abs = { ...abs, x: maxX - bounds.width }; break
-        case 'top': abs = { ...abs, y: minY }; break
-        case 'vmiddle': abs = { ...abs, y: (minY + maxY) / 2 - bounds.height / 2 }; break
-        case 'bottom': abs = { ...abs, y: maxY - bounds.height }; break
-      }
-      if (!node.parentId) return { ...node, position: abs }
-      const parent = byId.get(node.parentId)
-      if (!parent) return { ...node, position: abs }
-      const parentAbs = absolutePositionOf(parent, byId)
-      return { ...node, position: { x: abs.x - parentAbs.x, y: abs.y - parentAbs.y } }
-    })
-
-    set({ nodes: resolved, isDirty: true })
+    set({ nodes, isDirty: true })
   },
 
   distributeNodes: (ids, mode) => {
-    if (ids.length < 3) return
+    const nodes = layoutNodes(get().nodes, ids, mode)
+    if (nodes === get().nodes) return
     commit()
-
-    const nodes = get().nodes
-    const byId = new Map(nodes.map((n) => [n.id, n]))
-    const targets = ids.map((id) => byId.get(id)).filter((n): n is SystemNode => n !== undefined)
-    if (targets.length < 3) return
-
-    const boundsOf = (n: SystemNode) => {
-      const abs = absolutePositionOf(n, byId)
-      const width = n.width ?? defaultNodeWidth(n.type)
-      const height = n.height ?? defaultNodeHeight(n.type)
-      return { ...abs, width, height }
-    }
-
-    const boundsById = new Map(targets.map((n) => [n.id, boundsOf(n)]))
-    const targetIds = new Set(ids)
-
-    function applyAbs(node: SystemNode, abs: { x: number; y: number }): SystemNode {
-      if (!node.parentId) return { ...node, position: abs }
-      const parent = byId.get(node.parentId)
-      if (!parent) return { ...node, position: abs }
-      const parentAbs = absolutePositionOf(parent, byId)
-      return { ...node, position: { x: abs.x - parentAbs.x, y: abs.y - parentAbs.y } }
-    }
-
-    const newAbsById = new Map<string, { x: number; y: number }>()
-
-    if (mode === 'grid') {
-      const cols = Math.max(1, Math.round(Math.sqrt(targets.length)))
-      const GAP = 40
-
-      const sorted = [...targets].sort((a, b) => {
-        const ba = boundsById.get(a.id)!
-        const bb = boundsById.get(b.id)!
-        return ba.y - bb.y || ba.x - bb.x
-      })
-
-      const cellWidth = Math.max(...targets.map((n) => boundsById.get(n.id)!.width))
-      const cellHeight = Math.max(...targets.map((n) => boundsById.get(n.id)!.height))
-      const originX = Math.min(...targets.map((n) => boundsById.get(n.id)!.x))
-      const originY = Math.min(...targets.map((n) => boundsById.get(n.id)!.y))
-
-      sorted.forEach((n, i) => {
-        const col = i % cols
-        const row = Math.floor(i / cols)
-        newAbsById.set(n.id, {
-          x: originX + col * (cellWidth + GAP),
-          y: originY + row * (cellHeight + GAP),
-        })
-      })
-    } else {
-      const axis: 'x' | 'y' = mode === 'horizontal' ? 'x' : 'y'
-      const size: 'width' | 'height' = mode === 'horizontal' ? 'width' : 'height'
-
-      const MIN_GAP = 40
-
-      const sorted = [...targets].sort((a, b) => boundsById.get(a.id)![axis] - boundsById.get(b.id)![axis])
-      const first = boundsById.get(sorted[0].id)!
-      const last = boundsById.get(sorted[sorted.length - 1].id)!
-      const span = (last[axis] + last[size]) - first[axis]
-      const totalSize = sorted.reduce((sum, n) => sum + boundsById.get(n.id)![size], 0)
-      const gap = Math.max(MIN_GAP, (span - totalSize) / (sorted.length - 1))
-
-      let cursor = first[axis]
-      sorted.forEach((n) => {
-        const b = boundsById.get(n.id)!
-        newAbsById.set(n.id, axis === 'x' ? { x: cursor, y: b.y } : { x: b.x, y: cursor })
-        cursor += b[size] + gap
-      })
-    }
-
-    const resolved = nodes.map((node) => {
-      if (!targetIds.has(node.id)) return node
-      return applyAbs(node, newAbsById.get(node.id)!)
-    })
-
-    set({ nodes: resolved, isDirty: true })
+    set({ nodes, isDirty: true })
   },
 
   setSelectedEdge: (id) => set({ selectedEdgeId: id }),
@@ -960,8 +661,9 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
   },
 
   loadDiagram: (file) => {
-    const byId = new Map(file.nodes.map((n) => [n.id, n]))
-    const orderedNodes = [...file.nodes].sort((a, b) => depthOf(a, byId) - depthOf(b, byId))
+    dragActive = false
+    resizeActive = false
+    const orderedNodes = sortNodesByHierarchy(file.nodes)
 
     set({
       nodes: orderedNodes.map((n) => ({
@@ -970,12 +672,15 @@ export const useDiagramStore = create<DiagramState>((set, get) => {
         width: n.width,
         height: n.height,
         parentId: n.parentId,
-        extent: n.parentId ? ('parent' as const) : undefined,
+        // Membership must not clamp dragging: crossing a boundary is how users leave a group.
+        extent: undefined,
+        expandParent: undefined,
       })),
       edges: file.edges.map((e) => ({ ...e, type: 'useCase' })),
       useCases: file.useCases,
       scenarios: file.scenarios ?? [],
       selectedEdgeId: null,
+      dropTargetGroupId: null,
       showEdgeLabels: file.showEdgeLabels ?? true,
       floatingEdges: file.floatingEdges ?? false,
       highlightedNodeIds: [],

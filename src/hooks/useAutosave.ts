@@ -6,11 +6,13 @@ const MAX_WAIT_MS = 10000
 
 export function useAutosave() {
   const isDirty = useDiagramStore((s) => s.isDirty)
+  const isSaving = useDiagramStore((s) => s.isSaving)
+  const remoteChangeAvailable = useDiagramStore((s) => s.remoteChangeAvailable)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const firstDirtyAtRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!isDirty) {
+    if (!isDirty || isSaving || remoteChangeAvailable) {
       firstDirtyAtRef.current = null
       return
     }
@@ -30,7 +32,7 @@ export function useAutosave() {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
-  }, [isDirty])
+  }, [isDirty, isSaving, remoteChangeAvailable])
 
   useEffect(() => {
     function flush() {

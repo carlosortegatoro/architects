@@ -829,6 +829,22 @@ body,
   color: #ef4444;
 }
 
+.group-box__fit {
+  height: 22px;
+  padding: 0 5px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 5px;
+  background: rgba(15, 23, 42, 0.35);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.group-box__fit:hover,
+.group-box__fit:focus-visible {
+  background: rgba(15, 23, 42, 0.65);
+}
+
 .annotation-box {
   position: relative;
   width: 100%;

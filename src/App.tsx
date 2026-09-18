@@ -128,8 +128,10 @@ export default function App() {
       {!presenting && <MenuBar onPresent={enterPresentation} onOpenPicker={() => setPickerOpen(true)} />}
       {!presenting && remoteChangeAvailable && isDirty && (
         <div className="remote-change-banner">
-          <span>Hay cambios nuevos guardados por el agente MCP.</span>
-          <button className="btn" onClick={reloadFromRemote}>Recargar cambios del agente</button>
+          <span>Hay cambios remotos nuevos. El autoguardado está pausado para no sobrescribirlos; tus cambios locales siguen aquí.</span>
+          <button className="btn" onClick={() => {
+            if (window.confirm('Recargar descartará los cambios locales sin guardar. Puedes exportarlos a JSON antes de continuar. ¿Recargar?')) reloadFromRemote()
+          }}>Recargar cambios remotos</button>
         </div>
       )}
       <div className="app__body">

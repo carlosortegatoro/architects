@@ -12,10 +12,11 @@ type GroupNodeType = Node<GroupNodeData>
 const DEFAULT_WIDTH = 240
 const DEFAULT_HEIGHT = 160
 
-export function GroupNode({ id, data, selected }: NodeProps<GroupNodeType>) {
+export function GroupNode({ id, data, selected, width, height }: NodeProps<GroupNodeType>) {
   const [editing, setEditing] = useState(false)
   const updateNodeData = useDiagramStore((s) => s.updateNodeData)
   const removeNode = useDiagramStore((s) => s.removeNode)
+  const fitGroupToContent = useDiagramStore((s) => s.fitGroupToContent)
   const presenting = useDiagramStore((s) => s.presenting)
   const isDropTarget = useDiagramStore((s) => s.dropTargetGroupId === id)
   const updateNodeInternals = useUpdateNodeInternals()
@@ -25,7 +26,7 @@ export function GroupNode({ id, data, selected }: NodeProps<GroupNodeType>) {
 
   useEffect(() => {
     updateNodeInternals(id)
-  }, [id, counts.top, counts.right, counts.bottom, counts.left, updateNodeInternals])
+  }, [id, width, height, counts.top, counts.right, counts.bottom, counts.left, updateNodeInternals])
 
   function setSideCount(side: keyof HandleCounts, value: number) {
     updateNodeData(id, { handleCounts: { ...counts, [side]: value } })
@@ -94,6 +95,16 @@ export function GroupNode({ id, data, selected }: NodeProps<GroupNodeType>) {
         )}
         {!presenting && (
           <div className="node-header-actions nodrag">
+            <button
+              className="group-box__fit nodrag"
+              type="button"
+              title="Fit group to contents"
+              aria-label="Fit group to contents"
+              onDoubleClick={(event) => event.stopPropagation()}
+              onClick={() => fitGroupToContent(id)}
+            >
+              Fit
+            </button>
             <NodeColorPicker color={data.color} onChange={(color) => updateNodeData(id, { color })} />
             <button className="group-box__delete nodrag" onClick={() => removeNode(id)} title="Delete group">
               ✕

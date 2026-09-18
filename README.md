@@ -99,6 +99,26 @@ Ver [`src/types.ts`](src/types.ts). Resumen:
 - Título y cuerpo libre editables, color y tamaño ajustables.
 - Handles configurables para conectarlas con sistemas, grupos, cajas informativas u otras anotaciones.
 
+### Agrupar y mover cajas
+
+- Al soltar una caja completamente dentro de un grupo, pasa a pertenecer a él sin cambiar su posición en el canvas. El grupo destino se resalta durante el arrastre.
+- La pertenencia cambia solo al soltar. Arrastrar fuera permite salir del grupo o pasar a otro; un solapamiento parcial no basta para entrar.
+- Entre grupos anidados se prioriza el más interior; entre candidatos al mismo nivel, el más pequeño. En empates se conserva el padre actual o se elige el último dibujado.
+- Mover un grupo transporta sus hijos y grupos anidados sin alterar sus posiciones relativas. Los grupos arrastrados y sus descendientes no son destinos para los demás elementos del mismo arrastre.
+- Los grupos no crecen ni se encogen al mover cajas. El botón `Fit` de la cabecera ajusta el marco al contenido directo, con espacio para la cabecera y los bordes, sin mover el contenido en el canvas. Un grupo vacío no cambia.
+- Cada arrastre (también múltiple) y cada ajuste explícito tienen un paso de deshacer/rehacer. Las conexiones y la agrupación se conservan al guardar y volver a abrir.
+- Cambiar la forma de una caja conserva el comportamiento anterior: puede ampliar sus grupos contenedores para acomodar el nuevo tamaño. Esto es independiente del arrastre.
+
+Prueba local: crea primero una caja y después un grupo, arrástrala dentro y fuera, pásala entre dos grupos, repite con grupos anidados y varias cajas seleccionadas, y comprueba `Fit`, deshacer/rehacer y guardar/reabrir. La geometría está cubierta por `tests/nodeGrouping.test.ts`; queda pendiente la validación visual en navegador.
+
+### Cobertura del MCP
+
+El servidor anuncia **38 herramientas** para edición del documento: escenarios, todas las formas de nodo, movimiento/tamaño/agrupación, conversión de formas, conexiones, casos de uso, alineación/distribución, opciones guardadas, importación/exportación, duplicación, borrado y compartición. Incorpora deshacer/rehacer persistente para los últimos 50 cambios MCP y control de revisión para evitar sobrescrituras concurrentes entre el editor y el agente.
+
+Requiere aplicar `004_mcp_history.sql` mediante `npm run migrate` contra la base de datos de desarrollo antes de probar esta versión. La implementación está local, sin desplegar. Inventario, contratos de coordenadas, confirmaciones y pruebas en [MCP_PARITY.md](MCP_PARITY.md).
+
+Los controles efímeros de una pestaña (activar un escenario en presentación, fullscreen, puntero, zoom, tema) no son edición del documento y siguen fuera del MCP. El historial MCP es independiente del undo del navegador y se reinicia tras un guardado de la UI.
+
 ### Cambiar la forma de una caja
 
 Clic derecho sobre una caja, o selección de una sola caja → botón `Change shape` sobre el canvas. El selector ofrece caja completa, solo logo, solo texto, caja informativa y anotación. Los grupos no se convierten.
@@ -131,7 +151,7 @@ En `Logo only`, el logo ocupa el espacio interior disponible, sin recorte circul
 - Se sale con el botón "✕" de la leyenda o con la tecla `Esc`.
 
 ### Persistencia
-- **Autoguardado**: cada cambio se guarda en PostgreSQL con debounce; el frontend comprueba además si el diagrama ha sido actualizado remotamente.
+- **Autoguardado**: cada cambio se guarda en PostgreSQL con debounce y revisión esperada; el frontend comprueba además si el diagrama ha sido actualizado remotamente. Un conflicto pausa el guardado y mantiene los cambios locales hasta que el usuario decida recargar (con confirmación y posibilidad de exportar antes).
 - **Migración local**: si una cuenta nueva no tiene diagramas, se ofrece importar el antiguo diagrama almacenado en `localStorage`.
 - **Export**: botón "Guardar JSON" descarga el diagrama completo como `diagrama.json`.
 - **Import**: botón "Cargar JSON" reemplaza el diagrama actual por el contenido de un archivo `.json` (se valida `version === 1` antes de aplicar).

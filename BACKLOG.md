@@ -4,6 +4,22 @@ Ideas discutidas pero no implementadas (o pendientes de decidir). No es un roadm
 
 Ordenadas de más fácil a más compleja de desarrollar.
 
+## 🧪 Agrupación estable al arrastrar — implementado localmente, pendiente de validación visual
+
+Orden de padres antes que hijos tras cada agrupación; posición absoluta conservada al entrar, salir o pasar entre grupos; destino compartido entre resaltado y drop, priorizando el grupo más interior. Eliminada la restricción `extent: 'parent'` al cargar para permitir salir arrastrando, sin migración de datos.
+
+El movimiento no redimensiona grupos. Nuevo botón `Fit` para ajustar explícitamente el marco sin mover sus hijos en el canvas. Arrastres múltiples, subárboles, teclado, prevención de ciclos, deshacer/rehacer e importación/exportación cubiertos por pruebas. El cambio de forma mantiene su expansión de ancestros existente.
+
+Pendiente de aprobación visual local; sin commit, push ni despliegue de esta corrección.
+
+## 🧪 Paridad MCP / UI documental — implementado localmente, pendiente de migración y prueba manual
+
+Ampliación del 18/09/2026: **38 herramientas** (antes 15). Inventario y contratos en [MCP_PARITY.md](MCP_PARITY.md). Incluye CRUD de escenarios; edición, movimiento, tamaño, agrupación, anotaciones, cambio de forma y ajuste explícito de grupos; conexiones y casos de uso por ID; alineación/distribución; opciones persistidas; import/export, duplicación, borrado y compartición con confirmaciones.
+
+Historial persistente de hasta 50 cambios MCP con deshacer/rehacer entre peticiones. Migración `004_mcp_history.sql` preparada, no aplicada. Revisiones y transacciones protegen de escrituras concurrentes; la UI conserva cambios locales y pausa autoguardado si detecta conflicto. Un guardado UI reinicia el historial MCP; el undo local sigue independiente. Geometría compartida, `logoOnly` en 90×90 y sin autoajuste al insertar/mover hijos.
+
+Pendiente: aplicar migración en desarrollo, prueba manual con cliente MCP/UI y validación contra PostgreSQL; sin commit, push ni despliegue. Controles de sesión (activar presentación/escenario, fullscreen, puntero, resaltado, zoom, tema) requieren un canal remoto independiente y no están incluidos en esta ampliación documental.
+
 ## ✅ Auto-align de cajas al seleccionar — implementado
 
 `AlignmentToolbar.tsx`: barra flotante contextual que aparece solo con ≥2 nodos seleccionados, con botones de alineación (izquierda/centro/derecha, arriba/medio/abajo) que llaman a `alignNodes` en `diagramStore.ts`. Con ≥3 nodos seleccionados aparecen además los botones de distribución (horizontal/vertical/grid) vía `distributeNodes`.
@@ -50,12 +66,12 @@ Permitir cambiar de escenario sin usar el ratón mientras el diagrama está en m
 
 ## ✅ MCP server para crear arquitecturas "textualmente" — implementado (remoto, multi-usuario)
 
-Servidor MCP montado dentro del propio Express (`server/mcp/`, no un servicio/dyno separado), con transporte HTTP (`StreamableHTTPServerTransport` en modo stateless) en vez del `stdio` original — necesario porque `stdio` requiere un proceso local hablando por stdin/stdout con un cliente MCP también local, incompatible con un hosting HTTP-only como Heroku. Mismos 7 tools que antes (`list_diagrams`, `create_diagram`, `get_diagram`, `rename_diagram`, `create_system`, `create_connection`, `set_use_case`), ahora en `server/mcp/server.ts`, operando contra la API REST existente vía read-modify-write igual que antes.
+Servidor MCP montado dentro del propio Express (`server/mcp/`, no un servicio/dyno separado), con transporte HTTP (`StreamableHTTPServerTransport` en modo stateless) en vez del `stdio` original — necesario porque `stdio` requiere un proceso local hablando por stdin/stdout con un cliente MCP también local, incompatible con un hosting HTTP-only como Heroku. Las 7 herramientas originales se ampliaron progresivamente hasta las 38 actuales, en `server/mcp/server.ts` y `extendedTools.ts`, operando contra la API REST con autorización por usuario y comprobación de revisión.
 
 Cada usuario de la app tiene su **propio token MCP**, ya no un único token de servicio compartido:
 - El token es un JWT stateless normal (`signToken`/`verifyToken`, mismo mecanismo que ya usa el resto de la app), emitido por `POST /api/auth/mcp-token` (`server/routes/auth.ts`), sin revocación individual.
 - Cada request al endpoint `/mcp` pasa por `requireBearerAuth` + un verifier propio (`server/lib/mcpAuth.ts`) que, además de validar la firma del JWT, comprueba en Postgres que el usuario del token sigue existiendo (protege contra tokens de cuentas ya borradas, sin columnas nuevas en `users`).
-- Internamente, cada tool opera "como" el usuario del token: `server/mcp/server.ts` firma un JWT efímero de 5 minutos con el `userId`/`email` del Bearer token y lo manda como `Cookie: token=...` en llamadas internas a la API REST (`server/mcp/apiClient.ts`) — reutiliza `requireAuth`/`req.user!.id` tal cual, sin tocar `server/routes/diagrams.ts`.
+- Internamente, cada tool opera "como" el usuario del token: `server/mcp/server.ts` firma un JWT efímero de 5 minutos con el `userId`/`email` del Bearer token y lo manda como `Cookie: token=...` en llamadas internas a la API REST (`server/mcp/apiClient.ts`) — reutiliza `requireAuth`/`req.user!.id`. Las rutas de diagramas incorporan revisión e historial transaccional desde la ampliación de paridad.
 
 **Ya resuelto por Carlos como desarrollador/operador** (una sola vez, por terminal, nunca visible para un usuario final de la app):
 1. `npm install` en la raíz del repo — trajo `@modelcontextprotocol/sdk@1.30.0`. Confirmado instalado y compilando (`tsc -p server/tsconfig.json --noEmit` limpio).
@@ -80,13 +96,11 @@ Solución final: toggle `floatingEdges` a nivel de diagrama (persistido en `Diag
 
 Los puntos de conexión (`.react-flow__handle`, 6×6px) y las manijas de resize (`.react-flow__resize-control.handle`, 5×5px) eran 100% default de `@xyflow/react`, sin ningún override previo — obligaban a apuntar con extrema precisión. Solución CSS-only en `src/styles.css`: pseudo-elemento `::after` con `inset` negativo sobre ambas clases, que amplía el área clicable invisible sin cambiar el tamaño visual del punto en reposo. No se tocó ningún componente React.
 
-## ✅ Auto-resize de grupos (fit-to-children) — implementado
+## Auto-resize de grupos (fit-to-children) — sustituido por ajuste explícito en UI y MCP
 
-Los grupos se creaban con tamaño fijo (`GROUP_WIDTH=400`/`GROUP_HEIGHT=300`) y nunca se recalculaban al añadir sistemas dentro — con 3+ sistemas el grupo quedaba demasiado pequeño para contenerlos visualmente, típicamente al crear vía MCP. Función pura `fitGroupToChildren` (bounding box de los hijos + padding fijo, con mínimo `GROUP_MIN_WIDTH=240`/`GROUP_MIN_HEIGHT=160`) duplicada en ambos lados, igual que ya ocurre con `GROUP_WIDTH`/`GROUP_HEIGHT`:
-- **Frontend** (`diagramStore.ts`): integrada en `onNodesChange`, tras resolver las reasignaciones de `parentId` al soltar un drag — recalcula el tamaño de cualquier grupo que ganó o perdió un hijo en ese batch. Puede crecer y encoger (fit real, no solo crecer). No se recalcula en cada frame durante el arrastre, solo al soltar.
-- **Backend MCP** (`server/mcp/server.ts`): integrada en `create_system` cuando se pasa `parentId` — tras insertar el nuevo nodo hijo, recalcula el tamaño del grupo padre a partir de todos sus hijos actuales, dentro de la misma mutación.
+La implementación original reajustaba el grupo después de cada drop, creciendo o encogiendo. La corrección de agrupación del 17/09/2026 elimina ese comportamiento en la UI: el tamaño se conserva al mover cajas y `Fit` hace el ajuste explícito. El redimensionado manual sigue disponible; el cambio de forma conserva su expansión de ancestros.
 
-El usuario sigue pudiendo redimensionar un grupo manualmente en cualquier momento vía `NodeResizer`; el fit-to-content solo se dispara en los eventos descritos, no de forma continua.
+El MCP también conserva las dimensiones al insertar o mover hijos y expone `fit_group`, usando la misma función de geometría que el botón `Fit` de la UI.
 
 ## 🔍 Exportar/importar desde Lucidchart — descartado
 
@@ -112,11 +126,11 @@ Investigación profunda completada (2026-08-05) contra la documentación oficial
 
 ## ✅ Headline + texto explicativo — implementado
 
-Nodo `annotation` independiente (`AnnotationNode.tsx`) — no se dio uso al campo `SystemNodeData.description` (sigue sin usar). Título editable por doble-click y cuerpo aparte (textarea, Enter inserta salto de línea en vez de cerrar), selector de color y tamaño ajustable vía `NodeResizer`. Participa en `fitGroupToChildren` igual que cualquier otro nodo. Inicialmente era solo informativo; ahora tiene handles configurables en los cuatro lados para poder conectarse con el resto de tipos de nodo. Sigue sin tener una tool MCP de creación propia; desde MCP se usa `create_info_card` para contenido explicativo estructurado.
+Nodo `annotation` independiente (`AnnotationNode.tsx`), con título y cuerpo editable, selector de color, tamaño ajustable y handles configurables para conectarse con todos los tipos de nodo. Participa en el ajuste explícito de grupos. Desde la ampliación MCP dispone de `create_annotation` y edición mediante `update_node`, sin necesidad de sustituirlo por una tarjeta informativa.
 
 ## ✅ Acción de borrar por MCP — implementado
 
-`delete_node`, `delete_connection`, `delete_use_case` en `server/mcp/server.ts` (`delete_diagram` queda fuera de alcance). `delete_node` sobre un `group` con hijos los promueve al nivel del padre del grupo (o a la raíz), conservando su posición absoluta — igual que ya hacía `removeNode` en la UI. `delete_use_case` limpia referencias en `edges`/`scenarios` sin borrar los edges/scenarios en sí.
+`delete_node`, `delete_connection`, `delete_use_case` en `server/mcp/server.ts`, ampliados con `delete_scenario` y `delete_diagram` (este último requiere confirmación y no se puede deshacer). `delete_node` sobre un grupo promueve sus hijos directos a la raíz conservando su posición absoluta, igual que la UI. `delete_use_case` limpia referencias en `edges`/`scenarios` sin borrar los edges/scenarios en sí. El borrado de elementos sí entra en el historial MCP.
 
 ## ✅ Acción de insertar imagen por MCP — implementado
 
@@ -175,7 +189,7 @@ Puntos a decidir cuando se ataque: cómo hace el matching (¿nombre exacto, alia
 
 ## Edición colaborativa (multi-usuario simultáneo)
 
-Hoy el modelo es un `owner_id` por diagrama, sin concepto de colaboradores ni de edición concurrente — autoguardado vía `PUT` completo del `content` (last-write-wins). Para permitir que varios usuarios editen el mismo esquema haría falta:
+Hoy el modelo es un `owner_id` por diagrama, sin concepto de colaboradores ni fusión de ediciones simultáneas. El `PUT` sigue enviando el documento completo; la ampliación MCP añade control de revisión y rechaza conflictos desde el editor/MCP actualizados, pero no implementa colaboración multiusuario. Para permitir que varios usuarios editen el mismo esquema haría falta:
 
 1. **Modelo de permisos**: tabla nueva (p.ej. `diagram_collaborators`: `diagram_id`, `user_id`, `role`) en vez del `owner_id` único actual — decidir roles (solo "editor" vs. también "viewer").
 2. **Sincronización en tiempo real**: el autoguardado actual (debounce + `PUT` de todo el `content`) no sirve para dos usuarios a la vez — el segundo `PUT` pisaría los cambios del primero. Necesitaría WebSockets (o polling corto) + algún mecanismo de merge (operational transform / CRDT, o al menos un locking optimista con versión incremental para detectar conflictos).

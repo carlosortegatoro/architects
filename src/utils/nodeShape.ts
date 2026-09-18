@@ -1,7 +1,7 @@
 import type { Node } from '@xyflow/react'
-import type { AnnotationNodeData, GroupNodeData, InfoCardNodeData, NodeShape, SystemNodeData } from '../types'
+import type { AnnotationNodeData, GroupNodeData, InfoCardNodeData, NodeShape, SystemNodeData } from '../types.js'
 
-type ShapeNode = Node<SystemNodeData | GroupNodeData | AnnotationNodeData | InfoCardNodeData>
+export type ShapeNode = Node<SystemNodeData | GroupNodeData | AnnotationNodeData | InfoCardNodeData>
 
 export const NODE_SHAPE_SIZES: Record<NodeShape, { width: number; height: number }> = {
   full: { width: 220, height: 110 },

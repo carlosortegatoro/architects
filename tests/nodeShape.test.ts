@@ -70,7 +70,7 @@ test('all shape conversions keep current text, hidden logos, handles, connection
       assert.deepEqual(data.handleCounts, handles)
       assert.equal(node.id, 'subject')
       assert.equal(node.parentId, 'inner')
-      assert.equal(node.extent, 'parent')
+      assert.equal(node.extent, undefined)
       assert.deepEqual(node.position, { x: 80, y: 70 })
       assert.deepEqual(exported().edges, fixture.edges)
       assert.deepEqual(exported().scenarios, fixture.scenarios)
